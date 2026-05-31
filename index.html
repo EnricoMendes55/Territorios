@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#5b21b6">
+<title>TerritóriosBíblicos</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --p900:#2e1065;--p800:#3b0764;--p700:#4a1590;--p600:#6d28d9;--p500:#7c3aed;
+  --p400:#8b5cf6;--p300:#a78bfa;--p200:#c4b5fd;--p100:#ede9fe;--p50:#f5f3ff;
+  --acc:#7c3aed;--acc2:#a78bfa;
+  --bg:#f5f3ff;--card:#fff;--text:#1a1a2e;--muted:#6b7280;--border:#e5e7eb;
+  --radius:12px;--shadow:0 2px 12px rgba(91,33,182,0.10);
+  --success:#15803d;--danger:#b91c1c;--warn:#b45309;--info:#1d4ed8;
+}
+[data-theme="dark"] {
+  --bg:#0f0a1e;--card:#1a1030;--text:#f3f0ff;--muted:#9ca3af;--border:#2d2040;
+  --shadow:0 2px 12px rgba(0,0,0,0.4);--p50:#2d1a5e;--p100:#3b2070;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s;}
+/* HEADER */
+.hdr{background:var(--p700);color:#fff;padding:0 14px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:300;box-shadow:0 2px 10px rgba(0,0,0,.3);}
+.hdr-title{font-size:17px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:7px;}
+.hdr-title em{color:var(--p200);font-style:normal;}
+.hdr-actions{display:flex;gap:6px;}
+.icon-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.2s;}
+.icon-btn:hover{background:rgba(255,255,255,.28);}
+/* NAV */
+.nav{display:flex;background:var(--p800);position:sticky;top:54px;z-index:299;overflow-x:auto;}
+.nav::-webkit-scrollbar{display:none;}
+.nb{flex:1;min-width:56px;background:none;border:none;color:rgba(255,255,255,.55);padding:9px 4px 7px;cursor:pointer;font-size:10px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px;text-transform:uppercase;letter-spacing:.4px;border-bottom:3px solid transparent;transition:.2s;}
+.nb svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;}
+.nb.active{color:var(--p200);border-bottom-color:var(--p300);}
+/* PAGES */
+.pg{display:none;padding:14px;max-width:720px;margin:0 auto;padding-bottom:80px;}
+.pg.active{display:block;}
+/* CARDS */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:11px;overflow:hidden;}
+.card-hd{padding:13px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.card-hd h3{font-size:14px;font-weight:700;color:var(--p600);}
+.card-bd{padding:15px;}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:13px;}
+@media(min-width:480px){.stats{grid-template-columns:repeat(4,1fr);}}
+.stat{background:var(--card);border-radius:var(--radius);padding:13px;box-shadow:var(--shadow);border-left:4px solid var(--p400);}
+.stat-n{font-size:26px;font-weight:800;color:var(--p600);}
+.stat-l{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+/* FORMS */
+label.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+input,select,textarea{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;font-size:14px;color:var(--text);background:var(--card);outline:none;transition:border-color .2s;font-family:inherit;}
+input:focus,select:focus,textarea:focus{border-color:var(--p400);}
+textarea{resize:vertical;min-height:72px;}
+.fr{margin-bottom:12px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;white-space:nowrap;}
+.btn-p{background:var(--p600);color:#fff;}
+.btn-p:hover{background:var(--p500);}
+.btn-o{background:transparent;color:var(--p600);border:1.5px solid var(--p400);}
+.btn-o:hover{background:var(--p50);}
+.btn-d{background:var(--danger);color:#fff;}
+.btn-s{background:var(--success);color:#fff;}
+.btn-w{background:var(--warn);color:#fff;}
+.btn-full{width:100%;justify-content:center;}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px;}
+/* ADDRESS CARDS */
+.ac{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:9px;overflow:hidden;cursor:pointer;transition:.15s;}
+.ac:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(91,33,182,.15);}
+.ac-hd{padding:11px 13px;display:flex;align-items:flex-start;gap:9px;}
+.ac-ico{width:38px;height:38px;border-radius:10px;background:var(--p100);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px;}
+.ac-info{flex:1;min-width:0;}
+.ac-name{font-size:14px;font-weight:700;color:var(--p700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ac-street{font-size:12px;color:var(--muted);}
+.ac-tags{display:flex;gap:5px;flex-wrap:wrap;padding:0 13px 11px;}
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
+.t-purple{background:var(--p100);color:var(--p700);}
+.t-green{background:#dcfce7;color:#166534;}
+.t-amber{background:#fef3c7;color:#92400e;}
+.t-red{background:#fee2e2;color:#991b1b;}
+.t-blue{background:#dbeafe;color:#1e40af;}
+.t-gray{background:#f3f4f6;color:#374151;}
+.t-orange{background:#ffedd5;color:#9a3412;}
+/* SEARCH */
+.srch{display:flex;gap:7px;margin-bottom:12px;}
+.srch input{flex:1;}
+.frow{display:flex;gap:7px;overflow-x:auto;margin-bottom:12px;padding-bottom:3px;}
+.frow::-webkit-scrollbar{display:none;}
+.fc{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:4px 13px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--muted);transition:.2s;}
+.fc.active{background:var(--p600);color:#fff;border-color:var(--p600);}
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:flex-end;justify-content:center;}
+.mo.center{align-items:center;}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:720px;max-height:93vh;overflow-y:auto;padding:18px;}
+.modal.center{border-radius:16px;max-height:85vh;margin:14px;width:calc(100% - 28px);}
+.mo-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.mo-hd h2{font-size:17px;font-weight:800;color:var(--p700);}
+.x-btn{width:30px;height:30px;border-radius:50%;background:var(--bg);border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+/* SECTION HEADERS */
+.sh{font-size:12px;font-weight:700;color:var(--p600);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:5px;border-bottom:2px solid var(--p100);}
+/* DETAIL */
+.dr{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.dr:last-child{border:none;}
+.dl{color:var(--muted);min-width:110px;font-weight:600;font-size:12px;flex-shrink:0;}
+.dv{color:var(--text);flex:1;}
+/* PERSON */
+.pc{background:var(--bg);border-radius:10px;padding:11px;margin-bottom:7px;display:flex;align-items:center;gap:9px;}
+.pa{width:34px;height:34px;border-radius:50%;background:var(--p600);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+/* PHOTO */
+.ph-area{border:2px dashed var(--border);border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:var(--muted);margin-bottom:12px;font-size:13px;}
+.ph-area:hover{border-color:var(--p400);color:var(--p600);}
+.ph-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px;}
+.ph-thumb{aspect-ratio:1;border-radius:8px;overflow:hidden;position:relative;background:#eee;}
+.ph-thumb img{width:100%;height:100%;object-fit:cover;}
+.ph-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;}
+/* FAB */
+.fab{position:fixed;bottom:22px;right:18px;width:54px;height:54px;border-radius:50%;background:var(--p600);color:#fff;border:none;cursor:pointer;font-size:26px;box-shadow:0 4px 18px rgba(109,40,217,.45);display:flex;align-items:center;justify-content:center;z-index:200;transition:.2s;}
+.fab:hover{transform:scale(1.08);}
+.fab:active{transform:scale(.94);}
+/* TOAST */
+.toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;font-weight:600;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;}
+.toast.show{opacity:1;}
+/* VISIT LOG */
+.vl{background:var(--bg);border-radius:8px;padding:10px;margin-bottom:6px;font-size:13px;}
+.vl-hd{display:flex;justify-content:space-between;font-weight:700;margin-bottom:3px;}
+.vl-out{font-size:11px;color:var(--muted);}
+/* SUGGESTION CARD */
+.sug{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px;margin-bottom:9px;display:flex;align-items:center;gap:11px;border-left:4px solid var(--p400);}
+.sug-ico{font-size:24px;}
+.sug-info{flex:1;}
+.sug-name{font-size:14px;font-weight:700;color:var(--p700);}
+.sug-days{font-size:12px;color:var(--muted);}
+/* EVENT */
+.ev-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:9px;overflow:hidden;}
+.ev-hd{background:var(--p700);color:#fff;padding:12px 15px;display:flex;justify-content:space-between;align-items:center;}
+.ev-title{font-size:15px;font-weight:800;}
+.ev-prog{font-size:12px;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:20px;}
+.ev-bd{padding:13px 15px;}
+.ev-bar{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin:6px 0 10px;}
+.ev-fill{height:100%;background:var(--p500);border-radius:4px;transition:.5s;}
+/* MAP */
+#leaflet-map{height:400px;border-radius:var(--radius);overflow:hidden;margin-bottom:12px;}
+.leaflet-popup-content{font-size:13px;line-height:1.5;min-width:180px;}
+.lp-name{font-weight:800;color:#4a1590;font-size:14px;margin-bottom:4px;}
+.lp-row{color:#555;margin-bottom:2px;}
+.lp-btn{display:block;margin-top:8px;background:#6d28d9;color:#fff;border:none;padding:7px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;width:100%;text-align:center;text-decoration:none;}
+/* GROUP TREE */
+.gt-city{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden;}
+.gt-city-hd{padding:12px 15px;background:var(--p700);color:#fff;font-weight:800;font-size:14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.gt-hood{padding:0 0 0 0;}
+.gt-hood-hd{padding:10px 15px 10px 28px;background:var(--p50);border-bottom:1px solid var(--border);font-weight:700;font-size:13px;color:var(--p700);display:flex;justify-content:space-between;cursor:pointer;}
+.gt-group{padding:10px 15px 10px 44px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer;}
+.gt-group:hover{background:var(--bg);}
+.gt-group:last-child{border:none;}
+/* SHARE CUSTOM */
+.addr-sel{background:var(--card);border-radius:10px;padding:10px 13px;margin-bottom:7px;display:flex;align-items:center;gap:10px;cursor:pointer;border:1.5px solid var(--border);transition:.2s;}
+.addr-sel.selected{border-color:var(--p500);background:var(--p50);}
+.addr-sel-chk{width:20px;height:20px;border-radius:5px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+.selected .addr-sel-chk{background:var(--p600);border-color:var(--p600);color:#fff;}
+/* DIVIDER */
+.div{height:1px;background:var(--border);margin:14px 0;}
+/* NO GROUP WARNING */
+.warn-badge{background:#fef3c7;color:#92400e;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700;}
+/* CONFLICT */
+.conf-card{background:var(--bg);border-radius:10px;padding:12px;margin-bottom:8px;border:1.5px solid var(--warn);}
+/* INLINE ACTIONS */
+.ia{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-title">📖 <em>Territórios</em></div>
+  <div class="hdr-actions">
+    <button class="icon-btn" onclick="toggleTheme()" title="Modo escuro/claro" id="theme-btn">🌙</button>
+    <button class="icon-btn" onclick="showAddressModal()" title="Novo endereço">＋</button>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nb active" onclick="showPage('home',this)" data-pg="home">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início
+  </button>
+  <button class="nb" onclick="showPage('addresses',this)" data-pg="addresses">
+    <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>Endereços
+  </button>
+  <button class="nb" onclick="showPage('map',this)" data-pg="map">
+    <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>Mapa
+  </button>
+  <button class="nb" onclick="showPage('groups',this)" data-pg="groups">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Grupos
+  </button>
+  <button class="nb" onclick="showPage('events',this)" data-pg="events">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Eventos
+  </button>
+  <button class="nb" onclick="showPage('share',this)" data-pg="share">
+    <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Compartilhar
+  </button>
+  <button class="nb" onclick="showPage('data',this)" data-pg="data">
+    <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Dados
+  </button>
+</nav>
+
+<!-- HOME -->
+<div id="pg-home" class="pg active">
+  <div class="stats" id="stats-grid"></div>
+  <div class="card">
+    <div class="card-hd"><h3>🗺 Sugestão de Território</h3></div>
+    <div class="card-bd" id="sug-list"></div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="card-hd"><h3>⚠️ Endereços Incompletos</h3></div>
+    <div class="card-bd" id="incomplete-list"></div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="card-hd"><h3>📊 Por Nacionalidade</h3></div>
+    <div class="card-bd" id="nat-chart"></div>
+  </div>
+</div>
+
+<!-- ADDRESSES -->
+<div id="pg-addresses" class="pg">
+  <div class="srch">
+    <input type="text" id="srch-input" placeholder="🔍 Nome, rua, bairro, nacionalidade..." oninput="renderAddresses()">
+  </div>
+  <div class="frow" id="filter-row">
+    <div class="fc active" data-f="all" onclick="setFilter(this,'all')">Todos</div>
+    <div class="fc" data-f="pending" onclick="setFilter(this,'pending')">Não visitados</div>
+    <div class="fc" data-f="revisit" onclick="setFilter(this,'revisit')">Revisitas</div>
+    <div class="fc" data-f="studying" onclick="setFilter(this,'studying')">Estudando</div>
+    <div class="fc" data-f="nogroup" onclick="setFilter(this,'nogroup')">Sem grupo</div>
+    <div class="fc" data-f="novisit" onclick="setFilter(this,'novisit')">Sem visita</div>
+  </div>
+  <div id="addr-list"></div>
+</div>
+
+<!-- MAP PAGE -->
+<div id="pg-map" class="pg">
+  <div class="card">
+    <div class="card-hd"><h3>🗺 Mapa de Territórios</h3></div>
+    <div class="card-bd" style="padding:10px">
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="fr">
+          <label class="lbl">Grupo</label>
+          <select id="map-filter-group" onchange="renderMap()">
+            <option value="all">Todos</option>
+          </select>
+        </div>
+        <div class="fr">
+          <label class="lbl">Status</label>
+          <select id="map-filter-status" onchange="renderMap()">
+            <option value="all">Todos</option>
+            <option value="pending">Não visitados</option>
+            <option value="revisit">Revisitas</option>
+            <option value="studying">Estudando</option>
+          </select>
+        </div>
+      </div>
+      <div id="leaflet-map"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Clique no pin para ver as informações. Clique em "Ir até lá" para abrir no Google Maps.</div>
+    </div>
+  </div>
+</div>
+
+<!-- GROUPS -->
+<div id="pg-groups" class="pg">
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <button class="btn btn-p btn-sm" onclick="showGroupModal()">+ Novo Grupo</button>
+    <button class="btn btn-o btn-sm" onclick="showCityModal()">+ Nova Cidade</button>
+  </div>
+  <div id="groups-tree"></div>
+</div>
+
+<!-- EVENTS -->
+<div id="pg-events" class="pg">
+  <button class="btn btn-p btn-sm" style="margin-bottom:12px" onclick="showEventModal()">+ Novo Evento</button>
+  <div id="events-list"></div>
+</div>
+
+<!-- SHARE -->
+<div id="pg-share" class="pg">
+  <div class="card">
+    <div class="card-hd"><h3>📤 Compartilhar Link do Mapa</h3></div>
+    <div class="card-bd">
+      <div class="fg2">
+        <div class="fr"><label class="lbl">Tipo</label>
+          <select id="sh-type" onchange="updateShareUI()">
+            <option value="custom">Seleção manual</option>
+            <option value="city">Cidade inteira</option>
+            <option value="hood">Bairro</option>
+            <option value="group">Grupo</option>
+            <option value="status">Por status</option>
+          </select>
+        </div>
+        <div class="fr" id="sh-extra-wrap"><label class="lbl" id="sh-extra-lbl">Status</label>
+          <select id="sh-extra">
+            <option value="pending">Não visitados</option>
+            <option value="revisit">Revisitas</option>
+            <option value="studying">Estudando</option>
+          </select>
+        </div>
+      </div>
+      <div id="sh-manual-list" style="display:none;max-height:320px;overflow-y:auto;margin-bottom:10px"></div>
+      <div class="ia">
+        <button class="btn btn-p" onclick="genMapLink()">🗺 Gerar link do mapa</button>
+        <button class="btn btn-o" onclick="genHTMLPage()">📄 Gerar página HTML</button>
+      </div>
+      <div id="sh-result" style="display:none;margin-top:12px;background:var(--p50);border:1.5px solid var(--p200);border-radius:10px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--p700);margin-bottom:7px;text-transform:uppercase">Link gerado</div>
+        <div style="display:flex;gap:7px;margin-bottom:7px">
+          <input type="text" id="sh-link" readonly style="font-size:11px;">
+          <button class="btn btn-p btn-sm" onclick="cpyLink()">Copiar</button>
+        </div>
+        <button class="btn btn-sm" style="background:#25d366;color:#fff;width:100%;justify-content:center" onclick="waShare()">📲 Compartilhar no WhatsApp</button>
+      </div>
+      <div id="sh-html-result" style="display:none;margin-top:10px;background:#dcfce7;border:1.5px solid #86efac;border-radius:10px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:7px">Página HTML com mapa Leaflet gerada</div>
+        <button class="btn btn-s btn-sm btn-full" onclick="dlHTML()">⬇ Baixar página HTML</button>
+        <div style="font-size:11px;color:#166534;margin-top:6px">Envie este arquivo. Quem receber abre no navegador e vê o mapa completo com todos os pins e informações.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DATA -->
+<div id="pg-data" class="pg">
+  <div class="card">
+    <div class="card-hd"><h3>💾 Exportar</h3></div>
+    <div class="card-bd">
+      <button class="btn btn-p btn-full" onclick="exportAll()" style="margin-bottom:8px">⬇ Exportar todos os dados (.json)</button>
+      <button class="btn btn-o btn-full" onclick="showExportGroupModal()">📦 Exportar grupo específico</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="card-hd"><h3>📥 Importar</h3></div>
+    <div class="card-bd">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Os dados importados serão comparados com os existentes. Duplicatas serão detectadas.</p>
+      <label for="imp-file" class="ph-area">📂 Selecionar arquivo .json</label>
+      <input type="file" id="imp-file" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="card-hd"><h3>⚠️ Perigo</h3></div>
+    <div class="card-bd">
+      <button class="btn btn-d btn-full" onclick="clearAll()">🗑 Apagar todos os dados</button>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="showAddressModal()">＋</button>
+<div class="toast" id="toast"></div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- ADDRESS MODAL -->
+<div id="mo-addr" class="mo" style="display:none" onclick="cmo(event,'mo-addr')">
+ <div class="modal">
+  <div class="mo-hd"><h2 id="mo-addr-title">Novo Endereço</h2><button class="x-btn" onclick="closeModal('mo-addr')">✕</button></div>
+  <input type="hidden" id="ei">
+
+  <div class="sh">📍 Localização</div>
+  <div class="fr"><label class="lbl">Nome / Referência *</label><input type="text" id="f-name" placeholder="Ex: Família Chen, Sr. Ahmad..."></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">CEP</label><input type="text" id="f-cep" placeholder="00000-000" oninput="maskCEP(this)" onblur="fetchCEP()"></div>
+    <div class="fr"><label class="lbl">Link Google Maps</label><input type="text" id="f-gmaps" placeholder="Cole o link aqui" onblur="parseGMapsLink()"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Rua / Avenida</label><input type="text" id="f-street" placeholder="Nome da rua"></div>
+    <div class="fr"><label class="lbl">Número</label><input type="text" id="f-number" placeholder="Nº"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Bairro</label><input type="text" id="f-hood" placeholder="Bairro"></div>
+    <div class="fr"><label class="lbl">Cidade</label><input type="text" id="f-city" placeholder="Cidade"></div>
+  </div>
+  <div class="fr"><label class="lbl">Complemento</label><input type="text" id="f-comp" placeholder="Apto, bloco, referência..."></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Latitude</label><input type="number" id="f-lat" placeholder="-23.5505" step="any"></div>
+    <div class="fr"><label class="lbl">Longitude</label><input type="number" id="f-lng" placeholder="-46.6333" step="any"></div>
+  </div>
+  <button class="btn btn-o btn-sm" onclick="getGeo()" style="margin-bottom:12px">📍 Usar localização atual</button>
+
+  <div class="sh">👥 Pessoas na Casa</div>
+  <div id="ppl-form"></div>
+  <button class="btn btn-o btn-sm" onclick="addPersonForm(null)" style="margin-bottom:12px">+ Adicionar pessoa</button>
+
+  <div class="sh">📋 Informações</div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Grupo</label><select id="f-group"><option value="">Sem grupo</option></select></div>
+    <div class="fr"><label class="lbl">Status</label>
+      <select id="f-status">
+        <option value="pending">Não visitado</option>
+        <option value="revisit">Revisita</option>
+        <option value="studying">Estudando a Bíblia</option>
+        <option value="unavailable">Não disponível</option>
+        <option value="no_interest">Não quer receber</option>
+        <option value="removed">Removido</option>
+        <option value="inactive">Inativo</option>
+        <option value="publisher">Publicador</option>
+        <option value="baptized">Batizado ativo</option>
+      </select>
+    </div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Melhor horário</label><input type="text" id="f-besttime" placeholder="Ex: manhãs, fins de semana"></div>
+    <div class="fr"><label class="lbl">Última publicação deixada</label><input type="text" id="f-lastpub" placeholder="Ex: Estude comigo, brochura..."></div>
+  </div>
+  <div class="fr"><label class="lbl">Observações</label><textarea id="f-notes" placeholder="Idioma, informações importantes..."></textarea></div>
+
+  <div class="sh">📅 Histórico de Visitas</div>
+  <div id="visits-log"></div>
+  <button class="btn btn-o btn-sm" onclick="showAddVisit()" style="margin-bottom:12px">+ Registrar visita</button>
+  <div id="add-visit-form" style="display:none;background:var(--bg);border-radius:10px;padding:12px;margin-bottom:12px">
+    <div class="fg2">
+      <div class="fr"><label class="lbl">Data</label><input type="date" id="vf-date"></div>
+      <div class="fr"><label class="lbl">Resultado</label>
+        <select id="vf-result">
+          <option value="attended">Atendeu</option>
+          <option value="home_busy">Em casa, mas ocupado</option>
+          <option value="not_home">Não estava em casa</option>
+          <option value="no_interest">Não quis atender</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg2">
+      <div class="fr"><label class="lbl">Quem atendeu</label><input type="text" id="vf-who" placeholder="Nome da pessoa"></div>
+      <div class="fr"><label class="lbl">Horário</label><input type="time" id="vf-time"></div>
+    </div>
+    <div class="fr"><label class="lbl">Observação da visita</label><input type="text" id="vf-note" placeholder="Notas da visita..."></div>
+    <div class="ia">
+      <button class="btn btn-p btn-sm" onclick="saveVisit()">Salvar visita</button>
+      <button class="btn btn-o btn-sm" onclick="document.getElementById('add-visit-form').style.display='none'">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="sh">📸 Fotos</div>
+  <label for="f-photos" class="ph-area">📷 Adicionar fotos</label>
+  <input type="file" id="f-photos" accept="image/*" multiple style="display:none" onchange="handlePhotos(event)">
+  <div class="ph-grid" id="ph-prev"></div>
+
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn btn-p btn-full" onclick="saveAddress()">💾 Salvar</button>
+    <button id="del-btn" class="btn btn-d" onclick="delAddr()" style="display:none">🗑</button>
+  </div>
+ </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div id="mo-detail" class="mo" style="display:none" onclick="cmo(event,'mo-detail')">
+ <div class="modal">
+  <div class="mo-hd"><h2 id="det-title">Detalhes</h2><button class="x-btn" onclick="closeModal('mo-detail')">✕</button></div>
+  <div id="det-content"></div>
+  <div class="ia" style="margin-top:14px">
+    <button class="btn btn-p" id="det-map-btn">🗺 Ir até lá</button>
+    <button class="btn btn-o" id="det-edit-btn">✏️ Editar</button>
+    <button class="btn btn-o btn-sm" id="det-visit-btn">📅 Registrar visita</button>
+  </div>
+ </div>
+</div>
+
+<!-- GROUP MODAL -->
+<div id="mo-group" class="mo center" style="display:none" onclick="cmo(event,'mo-group')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>Novo Grupo</h2><button class="x-btn" onclick="closeModal('mo-group')">✕</button></div>
+  <div class="fr"><label class="lbl">Nome do Grupo *</label><input type="text" id="g-name" placeholder="Ex: Setor 1, Rua das Flores..."></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Ícone</label>
+      <select id="g-icon"><option value="📍">📍 Pin</option><option value="🔵">🔵 Azul</option><option value="🟢">🟢 Verde</option><option value="🟡">🟡 Amarelo</option><option value="🔴">🔴 Vermelho</option><option value="🟣">🟣 Roxo</option><option value="🟠">🟠 Laranja</option></select>
+    </div>
+    <div class="fr"><label class="lbl">Responsável</label><input type="text" id="g-leader" placeholder="Nome"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Cidade</label>
+      <select id="g-city"><option value="">Sem cidade</option></select>
+    </div>
+    <div class="fr"><label class="lbl">Bairro</label><input type="text" id="g-hood" placeholder="Bairro deste grupo"></div>
+  </div>
+  <button class="btn btn-p btn-full" onclick="saveGroup()">Salvar Grupo</button>
+ </div>
+</div>
+
+<!-- CITY MODAL -->
+<div id="mo-city" class="mo center" style="display:none" onclick="cmo(event,'mo-city')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>Nova Cidade</h2><button class="x-btn" onclick="closeModal('mo-city')">✕</button></div>
+  <div class="fr"><label class="lbl">Nome da Cidade *</label><input type="text" id="c-name" placeholder="Ex: São Paulo, Guarulhos..."></div>
+  <button class="btn btn-p btn-full" onclick="saveCity()">Salvar</button>
+ </div>
+</div>
+
+<!-- EVENT MODAL -->
+<div id="mo-event" class="mo center" style="display:none" onclick="cmo(event,'mo-event')">
+ <div class="modal center">
+  <div class="mo-hd"><h2 id="mo-ev-title">Novo Evento</h2><button class="x-btn" onclick="closeModal('mo-event')">✕</button></div>
+  <input type="hidden" id="ev-id">
+  <div class="fr"><label class="lbl">Nome do Evento *</label><input type="text" id="ev-name" placeholder="Ex: Celebração da Memória, Assembleia..."></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Data</label><input type="date" id="ev-date"></div>
+    <div class="fr"><label class="lbl">Local</label><input type="text" id="ev-loc" placeholder="Endereço ou link"></div>
+  </div>
+  <div class="fr"><label class="lbl">Observações</label><textarea id="ev-notes" style="min-height:56px"></textarea></div>
+  <button class="btn btn-p btn-full" onclick="saveEvent()">Salvar Evento</button>
+ </div>
+</div>
+
+<!-- EVENT DETAIL MODAL -->
+<div id="mo-evdet" class="mo" style="display:none" onclick="cmo(event,'mo-evdet')">
+ <div class="modal">
+  <div class="mo-hd"><h2 id="evdet-title">Evento</h2><button class="x-btn" onclick="closeModal('mo-evdet')">✕</button></div>
+  <div id="evdet-content"></div>
+ </div>
+</div>
+
+<!-- CONFLICT MODAL -->
+<div id="mo-conflict" class="mo center" style="display:none">
+ <div class="modal center">
+  <div class="mo-hd"><h2>⚠️ Duplicatas detectadas</h2></div>
+  <div id="conflict-list" style="max-height:50vh;overflow-y:auto"></div>
+  <div class="ia" style="margin-top:12px">
+    <button class="btn btn-p" onclick="resolveConflicts('keep_new')">Substituir pelos novos</button>
+    <button class="btn btn-o" onclick="resolveConflicts('keep_both')">Manter os dois</button>
+    <button class="btn btn-o" onclick="resolveConflicts('keep_old')">Manter os existentes</button>
+  </div>
+ </div>
+</div>
+
+<!-- EXPORT GROUP MODAL -->
+<div id="mo-expg" class="mo center" style="display:none" onclick="cmo(event,'mo-expg')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>Exportar Grupo</h2><button class="x-btn" onclick="closeModal('mo-expg')">✕</button></div>
+  <div class="fr"><label class="lbl">Grupo</label><select id="exp-g-sel"></select></div>
+  <button class="btn btn-p btn-full" onclick="doExpGroup()">⬇ Exportar</button>
+ </div>
+</div>
+
+<!-- QUICK VISIT MODAL -->
+<div id="mo-qvisit" class="mo center" style="display:none" onclick="cmo(event,'mo-qvisit')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>📅 Registrar Visita</h2><button class="x-btn" onclick="closeModal('mo-qvisit')">✕</button></div>
+  <input type="hidden" id="qv-id">
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Data</label><input type="date" id="qvf-date"></div>
+    <div class="fr"><label class="lbl">Resultado</label>
+      <select id="qvf-result">
+        <option value="attended">Atendeu</option>
+        <option value="home_busy">Em casa, mas ocupado</option>
+        <option value="not_home">Não estava em casa</option>
+        <option value="no_interest">Não quis atender</option>
+      </select>
+    </div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Quem atendeu</label><input type="text" id="qvf-who"></div>
+    <div class="fr"><label class="lbl">Horário</label><input type="time" id="qvf-time"></div>
+  </div>
+  <div class="fr"><label class="lbl">Observação</label><input type="text" id="qvf-note"></div>
+  <button class="btn btn-p btn-full" onclick="saveQuickVisit()">Salvar</button>
+ </div>
+</div>
+
+<script>
+// ====== DB ======
+let db={addresses:[],groups:[],cities:[],events:[],photos:{}};
+let editPhotos=[];
+let editVisits=[];
+let pendingImport=null;
+let pendingConflicts=[];
+let shSelected=new Set();
+let genHTMLData=null;
+
+function loadDB(){
+  try{const r=localStorage.getItem('tb_v2');if(r){db=JSON.parse(r);}}catch(e){}
+  db.addresses=db.addresses||[];db.groups=db.groups||[];
+  db.cities=db.cities||[];db.events=db.events||[];db.photos=db.photos||{};
+}
+function saveDB(){localStorage.setItem('tb_v2',JSON.stringify(db));}
+
+// ====== THEME ======
+function toggleTheme(){
+  const d=document.documentElement;
+  const dark=d.getAttribute('data-theme')==='dark';
+  d.setAttribute('data-theme',dark?'light':'dark');
+  document.getElementById('theme-btn').textContent=dark?'🌙':'☀️';
+  localStorage.setItem('tb_theme',dark?'light':'dark');
+}
+function loadTheme(){
+  const t=localStorage.getItem('tb_theme')||'light';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('theme-btn').textContent=t==='dark'?'☀️':'🌙';
+}
+
+// ====== NAV ======
+let leafletMap=null;
+function showPage(id,btn){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pg-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(id==='home')renderHome();
+  if(id==='addresses')renderAddresses();
+  if(id==='map')renderMap();
+  if(id==='groups')renderGroups();
+  if(id==='events')renderEvents();
+  if(id==='share')renderShare();
+}
+
+// ====== HELPERS ======
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function fdate(d){if(!d)return'—';const[y,m,dy]=d.split('-');return`${dy}/${m}/${y}`;}
+function daysSince(d){if(!d)return9999;return Math.floor((Date.now()-new Date(d))/86400000);}
+const STATUS_LABEL={pending:'Não visitado',revisit:'Revisita',studying:'Estudando a Bíblia',unavailable:'Não disponível',no_interest:'Não quer receber',removed:'Removido',inactive:'Inativo',publisher:'Publicador',baptized:'Batizado ativo'};
+const STATUS_ICON={pending:'⏳',revisit:'🔄',studying:'📖',unavailable:'❌',no_interest:'🚫',removed:'🗑',inactive:'💤',publisher:'📣',baptized:'⭐'};
+const VISIT_LABEL={attended:'Atendeu',home_busy:'Em casa / ocupado',not_home:'Não estava em casa',no_interest:'Não quis atender'};
+function stag(s){const m={pending:'t-gray',revisit:'t-amber',studying:'t-green',unavailable:'t-red',no_interest:'t-red',removed:'t-red',inactive:'t-gray',publisher:'t-blue',baptized:'t-purple'};return m[s]||'t-gray';}
+
+// ====== HOME ======
+function renderHome(){
+  const total=db.addresses.length;
+  const studying=db.addresses.filter(a=>a.status==='studying').length;
+  const revisit=db.addresses.filter(a=>a.status==='revisit').length;
+  const ppl=db.addresses.reduce((s,a)=>s+(a.people?a.people.length:0),0);
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat"><div class="stat-n">${total}</div><div class="stat-l">Endereços</div></div>
+    <div class="stat"><div class="stat-n">${ppl}</div><div class="stat-l">Pessoas</div></div>
+    <div class="stat"><div class="stat-n">${studying}</div><div class="stat-l">Estudando</div></div>
+    <div class="stat"><div class="stat-n">${revisit}</div><div class="stat-l">Revisitas</div></div>
+  `;
+  // Suggestions: groups by oldest last visit among its addresses
+  const sugEl=document.getElementById('sug-list');
+  if(db.groups.length===0){sugEl.innerHTML='<p style="font-size:13px;color:var(--muted)">Crie grupos para ver sugestões.</p>';return;}
+  const gscores=db.groups.map(g=>{
+    const addrs=db.addresses.filter(a=>a.groupId===g.id);
+    if(addrs.length===0)return{g,days:9999,lastDate:null};
+    // last visit among all visits in all addresses
+    let lastTs=0;
+    addrs.forEach(a=>{
+      if(a.visits&&a.visits.length>0){
+        a.visits.forEach(v=>{const t=new Date(v.date).getTime();if(t>lastTs)lastTs=t;});
+      }
+    });
+    const days=lastTs>0?Math.floor((Date.now()-lastTs)/86400000):9999;
+    return{g,days,lastDate:lastTs>0?new Date(lastTs).toISOString().slice(0,10):null};
+  }).sort((a,b)=>b.days-a.days);
+  sugEl.innerHTML=gscores.slice(0,5).map(({g,days,lastDate})=>`
+    <div class="sug" onclick="filterByGroup('${g.id}')">
+      <div class="sug-ico">${g.icon}</div>
+      <div class="sug-info">
+        <div class="sug-name">${g.name}</div>
+        <div class="sug-days">${days>=9999?'Nunca trabalhado':days===0?'Trabalhado hoje':'Último trabalho: '+days+' dia'+(days!==1?'s':'')+' atrás'+(lastDate?' ('+fdate(lastDate)+')':'')}</div>
+      </div>
+    </div>
+  `).join('');
+  // Incomplete
+  const incEl=document.getElementById('incomplete-list');
+  const incomplete=db.addresses.filter(a=>!a.groupId||(!a.lat&&!a.street)||((!a.visits||a.visits.length===0)&&a.status==='pending'));
+  if(incomplete.length===0){incEl.innerHTML='<p style="font-size:13px;color:var(--success)">✅ Todos os endereços estão completos!</p>';}
+  else{incEl.innerHTML=incomplete.slice(0,5).map(a=>`
+    <div class="dr" onclick="showDetail('${a.id}')">
+      <div style="flex:1"><span style="font-weight:700;font-size:13px">${a.name||'Sem nome'}</span><br>
+      <span style="font-size:11px;color:var(--muted)">${[!a.groupId?'sem grupo':null,(!a.lat&&!a.street)?'sem endereço':null,(!a.visits||a.visits.length===0)?'sem visita':null].filter(Boolean).join(' · ')}</span></div>
+    </div>`).join('');}
+  // Nationality
+  const natMap={};
+  db.addresses.forEach(a=>{if(a.people)a.people.forEach(p=>{if(p.nationality)natMap[p.nationality]=(natMap[p.nationality]||0)+1;});});
+  const natEl=document.getElementById('nat-chart');
+  const entries=Object.entries(natMap).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0){natEl.innerHTML='<p style="font-size:13px;color:var(--muted)">Nenhum dado de nacionalidade.</p>';return;}
+  const mx=entries[0][1];
+  natEl.innerHTML=entries.map(([n,c])=>`
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><span style="font-weight:600">${n}</span><span style="color:var(--muted)">${c}</span></div>
+      <div style="background:var(--border);border-radius:4px;height:7px"><div style="background:var(--p500);border-radius:4px;height:7px;width:${Math.round(c/mx*100)}%"></div></div>
+    </div>`).join('');
+}
+
+// ====== ADDRESSES ======
+let curFilter='all';
+function setFilter(el,f){curFilter=f;document.querySelectorAll('.fc').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderAddresses();}
+function filterByGroup(gid){
+  showPage('addresses',document.querySelector('.nb[data-pg="addresses"]'));
+  curFilter='all';document.querySelectorAll('.fc').forEach(c=>c.classList.remove('active'));document.querySelector('[data-f=all]').classList.add('active');
+  document.getElementById('srch-input').value='';
+  // temp filter by group
+  renderAddressesFor(gid);
+}
+function renderAddressesFor(gid){
+  const list=db.addresses.filter(a=>a.groupId===gid);
+  renderAddrList(list);
+}
+function renderAddresses(){
+  const q=(document.getElementById('srch-input')?.value||'').toLowerCase();
+  let list=db.addresses.filter(a=>{
+    const match=[a.name,a.street,a.neighborhood,a.city,a.complement,...(a.people||[]).map(p=>p.nationality+' '+p.name)].filter(Boolean).join(' ').toLowerCase().includes(q);
+    if(!match)return false;
+    if(curFilter==='all')return true;
+    if(curFilter==='nogroup')return!a.groupId;
+    if(curFilter==='novisit')return!a.visits||a.visits.length===0;
+    return a.status===curFilter;
+  });
+  renderAddrList(list);
+}
+function renderAddrList(list){
+  const c=document.getElementById('addr-list');if(!c)return;
+  if(list.length===0){c.innerHTML=`<div style="text-align:center;padding:30px;color:var(--muted)">📍 Nenhum endereço encontrado${db.addresses.length===0?'<br><small>Clique em + para adicionar</small>':''}</div>`;return;}
+  c.innerHTML=list.map(a=>{
+    const g=db.groups.find(x=>x.id===a.groupId);
+    const pct=a.people?a.people.length:0;
+    const lastV=a.visits&&a.visits.length>0?a.visits[a.visits.length-1].date:null;
+    const warn=!a.groupId?'<span class="warn-badge">sem grupo</span>':'';
+    return`<div class="ac" onclick="showDetail('${a.id}')">
+      <div class="ac-hd">
+        <div class="ac-ico">${g?g.icon:'📍'}</div>
+        <div class="ac-info">
+          <div class="ac-name">${a.name||'Sem nome'} ${warn}</div>
+          <div class="ac-street">${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'Sem endereço'}</div>
+        </div>
+        <div style="font-size:18px">${STATUS_ICON[a.status]||'⏳'}</div>
+      </div>
+      <div class="ac-tags">
+        <span class="tag ${stag(a.status)}">${STATUS_LABEL[a.status]||a.status}</span>
+        ${pct>0?`<span class="tag t-blue">👥 ${pct}</span>`:''}
+        ${g?`<span class="tag t-purple">${g.name}</span>`:''}
+        ${lastV?`<span class="tag t-gray">Visita: ${fdate(lastV)}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ====== DETAIL ======
+function showDetail(id){
+  const a=db.addresses.find(x=>x.id===id);if(!a)return;
+  const g=db.groups.find(x=>x.id===a.groupId);
+  const photos=db.photos[id]||[];
+  const photoHtml=photos.length>0?`<div class="ph-grid">${photos.map(p=>`<div class="ph-thumb"><img src="${p}" onclick="window.open('${p}','_blank')"></div>`).join('')}</div>`:'';
+  const pplHtml=a.people&&a.people.length>0?a.people.map(p=>`
+    <div class="pc"><div class="pa">${(p.name||'?')[0].toUpperCase()}</div>
+    <div><div style="font-weight:700;font-size:13px">${p.name||'—'}</div>
+    <div style="font-size:11px;color:var(--muted)">${[p.nationality,p.sex==='M'?'Masculino':p.sex==='F'?'Feminino':'',p.phone].filter(Boolean).join(' · ')}</div></div></div>`).join(''):`<p style="font-size:13px;color:var(--muted)">Nenhuma pessoa cadastrada.</p>`;
+  const visHtml=a.visits&&a.visits.length>0?[...a.visits].reverse().map(v=>`
+    <div class="vl"><div class="vl-hd"><span>${fdate(v.date)} ${v.time||''}</span><span class="tag ${v.result==='attended'?'t-green':v.result==='not_home'?'t-amber':'t-gray'}" style="font-size:10px">${VISIT_LABEL[v.result]||v.result}</span></div>
+    ${v.who?`<div class="vl-out">Atendido por: ${v.who}</div>`:''}
+    ${v.note?`<div class="vl-out">${v.note}</div>`:''}</div>`).join(''):`<p style="font-size:13px;color:var(--muted)">Nenhuma visita registrada.</p>`;
+  // events
+  const evLinks=db.events.filter(e=>e.invitedIds&&e.invitedIds.includes(id));
+  const evHtml=evLinks.length>0?evLinks.map(e=>`<span class="tag t-purple">✉️ ${e.name}</span>`).join(' '):'';
+
+  document.getElementById('det-title').textContent=a.name||'Endereço';
+  document.getElementById('det-content').innerHTML=`
+    <div style="margin-bottom:14px">
+      <div class="dr"><span class="dl">Endereço</span><span class="dv">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</span></div>
+      <div class="dr"><span class="dl">Bairro / Cidade</span><span class="dv">${[a.neighborhood,a.city].filter(Boolean).join(', ')||'—'}</span></div>
+      <div class="dr"><span class="dl">Complemento</span><span class="dv">${a.complement||'—'}</span></div>
+      <div class="dr"><span class="dl">Status</span><span class="dv">${STATUS_ICON[a.status]} ${STATUS_LABEL[a.status]||a.status}</span></div>
+      <div class="dr"><span class="dl">Grupo</span><span class="dv">${g?g.icon+' '+g.name:'—'}</span></div>
+      <div class="dr"><span class="dl">Melhor horário</span><span class="dv">${a.bestTime||'—'}</span></div>
+      <div class="dr"><span class="dl">Última publicação</span><span class="dv">${a.lastPub||'—'}</span></div>
+      ${evHtml?`<div class="dr"><span class="dl">Eventos</span><span class="dv">${evHtml}</span></div>`:''}
+    </div>
+    <div class="sh" style="margin-top:0">👥 Pessoas</div>${pplHtml}
+    ${a.notes?`<div class="sh">📝 Observações</div><p style="font-size:13px;line-height:1.6">${a.notes}</p>`:''}
+    <div class="sh">📅 Visitas (${a.visits?a.visits.length:0})</div>${visHtml}
+    ${photos.length>0?`<div class="sh">📸 Fotos</div>${photoHtml}`:''}
+  `;
+  const mapBtn=document.getElementById('det-map-btn');
+  if(a.lat&&a.lng){mapBtn.onclick=()=>window.open(`https://www.google.com/maps?q=${a.lat},${a.lng}`,'_blank');}
+  else if(a.street){const q=encodeURIComponent([a.street,a.number,a.neighborhood,a.city].filter(Boolean).join(', '));mapBtn.onclick=()=>window.open(`https://www.google.com/maps/search/?api=1&query=${q}`,'_blank');}
+  else{mapBtn.style.display='none';}
+  document.getElementById('det-edit-btn').onclick=()=>{closeModal('mo-detail');showAddressModal(id);};
+  document.getElementById('det-visit-btn').onclick=()=>{
+    closeModal('mo-detail');
+    document.getElementById('qv-id').value=id;
+    document.getElementById('qvf-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('qvf-time').value=new Date().toTimeString().slice(0,5);
+    document.getElementById('qvf-result').value='attended';
+    document.getElementById('qvf-who').value='';document.getElementById('qvf-note').value='';
+    document.getElementById('mo-qvisit').style.display='flex';
+  };
+  document.getElementById('mo-detail').style.display='flex';
+}
+
+// ====== ADD/EDIT ADDRESS ======
+let pCount=0;
+function showAddressModal(id){
+  editPhotos=[];editVisits=[];pCount=0;
+  document.getElementById('ppl-form').innerHTML='';
+  document.getElementById('ph-prev').innerHTML='';
+  document.getElementById('visits-log').innerHTML='';
+  document.getElementById('add-visit-form').style.display='none';
+  clearForm();
+  updateGroupSelect();
+  if(id){
+    const a=db.addresses.find(x=>x.id===id);if(!a)return;
+    document.getElementById('mo-addr-title').textContent='Editar Endereço';
+    document.getElementById('del-btn').style.display='';
+    document.getElementById('ei').value=id;
+    setField('f-name',a.name);setField('f-street',a.street);setField('f-number',a.number);
+    setField('f-hood',a.neighborhood);setField('f-city',a.city);setField('f-comp',a.complement);
+    setField('f-lat',a.lat);setField('f-lng',a.lng);setField('f-notes',a.notes);
+    setField('f-besttime',a.bestTime);setField('f-lastpub',a.lastPub);
+    document.getElementById('f-status').value=a.status||'pending';
+    document.getElementById('f-group').value=a.groupId||'';
+    if(a.people)a.people.forEach(p=>addPersonForm(p));
+    editVisits=a.visits?[...a.visits]:[];
+    renderVisitsForm();
+    editPhotos=[...(db.photos[id]||[])];
+    renderPhPrev();
+  } else {
+    document.getElementById('mo-addr-title').textContent='Novo Endereço';
+    document.getElementById('del-btn').style.display='none';
+    document.getElementById('ei').value='';
+    document.getElementById('vf-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('vf-time').value=new Date().toTimeString().slice(0,5);
+  }
+  document.getElementById('mo-addr').style.display='flex';
+}
+function setField(id,val){const el=document.getElementById(id);if(el)el.value=val||'';}
+function clearForm(){['f-name','f-street','f-number','f-hood','f-city','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps'].forEach(id=>setField(id,''));
+  document.getElementById('f-status').value='pending';}
+
+function addPersonForm(data){
+  pCount++;const pid='pf'+pCount;
+  const div=document.createElement('div');div.id=pid;
+  div.style='background:var(--bg);border-radius:10px;padding:11px;margin-bottom:7px';
+  div.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <strong style="font-size:12px;color:var(--p600)">Pessoa ${pCount}</strong>
+    <button class="btn btn-d btn-sm" style="padding:3px 9px" onclick="document.getElementById('${pid}').remove()">Remover</button>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Nome</label><input type="text" class="pn" value="${data?.name||''}"></div>
+    <div class="fr"><label class="lbl">Celular</label><input type="text" class="pp" value="${data?.phone||''}"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Nacionalidade</label><input type="text" class="pna" placeholder="Ex: Boliviana" value="${data?.nationality||''}"></div>
+    <div class="fr"><label class="lbl">Sexo</label><select class="psx"><option value="">—</option><option value="M" ${data?.sex==='M'?'selected':''}>Masculino</option><option value="F" ${data?.sex==='F'?'selected':''}>Feminino</option></select></div>
+  </div>`;
+  document.getElementById('ppl-form').appendChild(div);
+}
+
+function handlePhotos(e){
+  Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{editPhotos.push(ev.target.result);renderPhPrev();};r.readAsDataURL(f);});
+}
+function renderPhPrev(){
+  document.getElementById('ph-prev').innerHTML=editPhotos.map((p,i)=>`<div class="ph-thumb"><img src="${p}"><button class="ph-del" onclick="editPhotos.splice(${i},1);renderPhPrev()">✕</button></div>`).join('');
+}
+function showAddVisit(){document.getElementById('add-visit-form').style.display='block';}
+function saveVisit(){
+  const v={id:uid(),date:document.getElementById('vf-date').value,time:document.getElementById('vf-time').value,result:document.getElementById('vf-result').value,who:document.getElementById('vf-who').value,note:document.getElementById('vf-note').value};
+  if(!v.date){toast('Selecione a data');return;}
+  editVisits.push(v);renderVisitsForm();document.getElementById('add-visit-form').style.display='none';
+}
+function renderVisitsForm(){
+  document.getElementById('visits-log').innerHTML=[...editVisits].reverse().map((v,ri)=>`
+    <div class="vl"><div class="vl-hd"><span>${fdate(v.date)} ${v.time||''}</span>
+    <div style="display:flex;gap:5px;align-items:center"><span class="tag ${v.result==='attended'?'t-green':v.result==='not_home'?'t-amber':'t-gray'}">${VISIT_LABEL[v.result]||v.result}</span>
+    <button class="btn btn-d btn-sm" style="padding:2px 7px;font-size:10px" onclick="editVisits.splice(${editVisits.length-1-ri},1);renderVisitsForm()">✕</button></div></div>
+    ${v.who?`<div class="vl-out">Atendido: ${v.who}</div>`:''}${v.note?`<div class="vl-out">${v.note}</div>`:''}</div>`).join('');
+}
+
+function updateGroupSelect(){
+  const s=document.getElementById('f-group');if(!s)return;
+  s.innerHTML='<option value="">Sem grupo</option>'+db.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');
+}
+function getGeo(){
+  if(!navigator.geolocation){toast('Geolocalização não disponível');return;}
+  navigator.geolocation.getCurrentPosition(p=>{
+    document.getElementById('f-lat').value=p.coords.latitude.toFixed(6);
+    document.getElementById('f-lng').value=p.coords.longitude.toFixed(6);toast('📍 Localização capturada!');
+  },()=>toast('Não foi possível obter a localização.'));
+}
+function maskCEP(el){el.value=el.value.replace(/\D/g,'').replace(/(\d{5})(\d)/,'$1-$2').slice(0,9);}
+async function fetchCEP(){
+  const cep=document.getElementById('f-cep').value.replace(/\D/g,'');
+  if(cep.length!==8)return;
+  try{const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);const d=await r.json();
+    if(d.erro)return;
+    setField('f-street',d.logradouro);setField('f-hood',d.bairro);setField('f-city',d.localidade);
+    toast('✅ CEP preenchido!');
+  }catch(e){toast('CEP não encontrado.');}
+}
+function parseGMapsLink(){
+  const v=document.getElementById('f-gmaps').value.trim();if(!v)return;
+  // Try to extract coords from various Google Maps URL formats
+  let lat=null,lng=null;
+  const m1=v.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  const m2=v.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  const m3=v.match(/maps\/place\/[^/]+\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  const m4=v.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if(m1){lat=m1[1];lng=m1[2];}else if(m2){lat=m2[1];lng=m2[2];}else if(m3){lat=m3[1];lng=m3[2];}else if(m4){lat=m4[1];lng=m4[2];}
+  if(lat&&lng){document.getElementById('f-lat').value=lat;document.getElementById('f-lng').value=lng;toast('📍 Coordenadas extraídas!');}
+  else{toast('Não foi possível extrair as coordenadas deste link.');}
+}
+
+function saveAddress(){
+  const nm=document.getElementById('f-name').value.trim();
+  if(!nm){toast('Digite um nome para o endereço');return;}
+  const people=[];
+  document.getElementById('ppl-form').querySelectorAll('[id^=pf]').forEach(div=>{
+    const name=div.querySelector('.pn')?.value;const phone=div.querySelector('.pp')?.value;
+    const nat=div.querySelector('.pna')?.value;const sex=div.querySelector('.psx')?.value;
+    if(name||phone)people.push({name,phone,nationality:nat,sex});
+  });
+  const id=document.getElementById('ei').value||uid();
+  const addr={id,name:nm,street:document.getElementById('f-street').value.trim(),
+    number:document.getElementById('f-number').value.trim(),
+    neighborhood:document.getElementById('f-hood').value.trim(),
+    city:document.getElementById('f-city').value.trim(),
+    complement:document.getElementById('f-comp').value.trim(),
+    lat:document.getElementById('f-lat').value,lng:document.getElementById('f-lng').value,
+    status:document.getElementById('f-status').value,
+    groupId:document.getElementById('f-group').value,
+    bestTime:document.getElementById('f-besttime').value,
+    lastPub:document.getElementById('f-lastpub').value,
+    notes:document.getElementById('f-notes').value.trim(),
+    people,visits:editVisits,updatedAt:new Date().toISOString()};
+  const idx=db.addresses.findIndex(a=>a.id===id);
+  if(idx>=0)db.addresses[idx]=addr;else db.addresses.push(addr);
+  if(editPhotos.length>0)db.photos[id]=editPhotos;else delete db.photos[id];
+  saveDB();closeModal('mo-addr');renderAddresses();renderHome();toast('✅ Salvo!');
+}
+function delAddr(){
+  const id=document.getElementById('ei').value;if(!id)return;
+  if(!confirm('Excluir este endereço?'))return;
+  db.addresses=db.addresses.filter(a=>a.id!==id);delete db.photos[id];
+  // remove from events
+  db.events.forEach(e=>{if(e.invitedIds)e.invitedIds=e.invitedIds.filter(x=>x!==id);});
+  saveDB();closeModal('mo-addr');renderAddresses();renderHome();toast('🗑 Removido.');
+}
+
+// ====== QUICK VISIT ======
+function saveQuickVisit(){
+  const id=document.getElementById('qv-id').value;
+  const a=db.addresses.find(x=>x.id===id);if(!a)return;
+  if(!a.visits)a.visits=[];
+  a.visits.push({id:uid(),date:document.getElementById('qvf-date').value,time:document.getElementById('qvf-time').value,result:document.getElementById('qvf-result').value,who:document.getElementById('qvf-who').value,note:document.getElementById('qvf-note').value});
+  a.updatedAt=new Date().toISOString();
+  saveDB();closeModal('mo-qvisit');toast('📅 Visita registrada!');renderHome();
+}
+
+// ====== MAP ======
+function renderMap(){
+  const gf=document.getElementById('map-filter-group')?.value||'all';
+  const sf=document.getElementById('map-filter-status')?.value||'all';
+  // populate group select
+  const gs=document.getElementById('map-filter-group');
+  if(gs&&gs.options.length<=1){gs.innerHTML='<option value="all">Todos</option>'+db.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');}
+  const list=db.addresses.filter(a=>{
+    const gok=gf==='all'||a.groupId===gf;
+    const sok=sf==='all'||a.status===sf;
+    return gok&&sok&&(a.lat||a.street);
+  });
+  if(!leafletMap){
+    leafletMap=L.map('leaflet-map').setView([-15.78,-47.93],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(leafletMap);
+  } else {leafletMap.eachLayer(l=>{if(l instanceof L.Marker)leafletMap.removeLayer(l);});}
+  const bounds=[];
+  list.forEach(a=>{
+    if(!a.lat&&!a.street)return;
+    const lat=parseFloat(a.lat)||null;const lng=parseFloat(a.lng)||null;
+    if(!lat||!lng)return;
+    const g=db.groups.find(x=>x.id===a.groupId);
+    const ppl=a.people&&a.people.length>0?a.people.map(p=>`<div class="lp-row">👤 ${p.name||'—'} ${p.nationality?'('+p.nationality+')':''} ${p.phone?'· '+p.phone:''}</div>`).join(''):'';
+    const lastV=a.visits&&a.visits.length>0?fdate(a.visits[a.visits.length-1].date):'Nunca';
+    const mapsUrl=`https://www.google.com/maps?q=${lat},${lng}`;
+    const popup=`<div class="lp-name">${a.name||'Sem nome'}</div>
+      <div class="lp-row">${STATUS_ICON[a.status]} ${STATUS_LABEL[a.status]||''}</div>
+      <div class="lp-row">📍 ${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'—'}</div>
+      ${g?`<div class="lp-row">🗂 ${g.name}</div>`:''}
+      ${ppl}
+      <div class="lp-row">📅 Última visita: ${lastV}</div>
+      ${a.bestTime?`<div class="lp-row">⏰ Melhor horário: ${a.bestTime}</div>`:''}
+      ${a.notes?`<div class="lp-row">📝 ${a.notes}</div>`:''}
+      <a class="lp-btn" href="${mapsUrl}" target="_blank">🗺 Ir até lá no Google Maps</a>`;
+    const marker=L.marker([lat,lng]).addTo(leafletMap).bindPopup(popup,{maxWidth:260});
+    bounds.push([lat,lng]);
+  });
+  if(bounds.length>0)leafletMap.fitBounds(bounds,{padding:[30,30]});
+  setTimeout(()=>leafletMap.invalidateSize(),100);
+}
+
+// ====== GROUPS ======
+function showGroupModal(){
+  document.getElementById('g-name').value='';document.getElementById('g-leader').value='';
+  document.getElementById('g-hood').value='';
+  const cs=document.getElementById('g-city');
+  cs.innerHTML='<option value="">Sem cidade</option>'+db.cities.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('mo-group').style.display='flex';
+}
+function saveGroup(){
+  const nm=document.getElementById('g-name').value.trim();if(!nm){toast('Digite um nome');return;}
+  db.groups.push({id:uid(),name:nm,icon:document.getElementById('g-icon').value,leader:document.getElementById('g-leader').value.trim(),cityId:document.getElementById('g-city').value,hood:document.getElementById('g-hood').value.trim()});
+  saveDB();closeModal('mo-group');renderGroups();updateGroupSelect();toast('✅ Grupo criado!');
+}
+function showCityModal(){document.getElementById('c-name').value='';document.getElementById('mo-city').style.display='flex';}
+function saveCity(){
+  const nm=document.getElementById('c-name').value.trim();if(!nm){toast('Digite o nome da cidade');return;}
+  db.cities.push({id:uid(),name:nm});
+  saveDB();closeModal('mo-city');renderGroups();toast('✅ Cidade criada!');
+}
+function renderGroups(){
+  const c=document.getElementById('groups-tree');
+  if(db.cities.length===0&&db.groups.length===0){c.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted)">Nenhum grupo. Crie uma cidade e depois grupos.</div>';return;}
+  let html='';
+  // Cities with groups
+  const withCity=db.cities.map(city=>{
+    const groups=db.groups.filter(g=>g.cityId===city.id);
+    const hoods=[...new Set(groups.map(g=>g.hood).filter(Boolean))];
+    let inner='';
+    hoods.forEach(hood=>{
+      const hgroups=groups.filter(g=>g.hood===hood);
+      inner+=`<div class="gt-hood-hd">🏘 ${hood}</div>`;
+      inner+=hgroups.map(g=>renderGroupRow(g)).join('');
+    });
+    const noHood=groups.filter(g=>!g.hood);
+    inner+=noHood.map(g=>renderGroupRow(g)).join('');
+    return`<div class="gt-city"><div class="gt-city-hd"><span>🏙 ${city.name}</span><button class="btn btn-d btn-sm" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:3px 9px" onclick="event.stopPropagation();delCity('${city.id}')">✕</button></div><div class="gt-hood">${inner}</div></div>`;
+  });
+  html+=withCity.join('');
+  // Groups without city
+  const noCity=db.groups.filter(g=>!g.cityId);
+  if(noCity.length>0){html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted)">Sem cidade</div><div class="gt-hood">${noCity.map(g=>renderGroupRow(g)).join('')}</div></div>`;}
+  c.innerHTML=html||'<div style="text-align:center;padding:30px;color:var(--muted)">Crie cidades e grupos.</div>';
+}
+function renderGroupRow(g){
+  const cnt=db.addresses.filter(a=>a.groupId===g.id).length;
+  return`<div class="gt-group" onclick="filterByGroup('${g.id}')">
+    <span style="font-size:20px">${g.icon}</span>
+    <div style="flex:1"><div style="font-weight:700;font-size:13px">${g.name}</div><div style="font-size:11px;color:var(--muted)">${cnt} endereço${cnt!==1?'s':''}${g.leader?' · '+g.leader:''}</div></div>
+    <button class="btn btn-d btn-sm" style="padding:3px 9px" onclick="event.stopPropagation();delGroup('${g.id}')">🗑</button>
+  </div>`;
+}
+function delGroup(id){if(!confirm('Excluir grupo?'))return;db.groups=db.groups.filter(g=>g.id!==id);db.addresses.forEach(a=>{if(a.groupId===id)a.groupId='';});saveDB();renderGroups();}
+function delCity(id){if(!confirm('Excluir cidade? Os grupos vinculados ficarão sem cidade.'))return;db.cities=db.cities.filter(c=>c.id!==id);db.groups.forEach(g=>{if(g.cityId===id)g.cityId='';});saveDB();renderGroups();}
+
+// ====== EVENTS ======
+function showEventModal(id){
+  if(id){const e=db.events.find(x=>x.id===id);if(!e)return;
+    document.getElementById('mo-ev-title').textContent='Editar Evento';
+    document.getElementById('ev-id').value=id;
+    setField('ev-name',e.name);setField('ev-date',e.date);setField('ev-loc',e.location);setField('ev-notes',e.notes);
+  } else {document.getElementById('mo-ev-title').textContent='Novo Evento';document.getElementById('ev-id').value='';['ev-name','ev-date','ev-loc','ev-notes'].forEach(i=>setField(i,''));}
+  document.getElementById('mo-event').style.display='flex';
+}
+function saveEvent(){
+  const nm=document.getElementById('ev-name').value.trim();if(!nm){toast('Digite o nome');return;}
+  const id=document.getElementById('ev-id').value||uid();
+  const ev={id,name:nm,date:document.getElementById('ev-date').value,location:document.getElementById('ev-loc').value,notes:document.getElementById('ev-notes').value,invitedIds:db.events.find(e=>e.id===id)?.invitedIds||[]};
+  const idx=db.events.findIndex(e=>e.id===id);
+  if(idx>=0)db.events[idx]=ev;else db.events.push(ev);
+  saveDB();closeModal('mo-event');renderEvents();toast('✅ Evento salvo!');
+}
+function renderEvents(){
+  const c=document.getElementById('events-list');
+  if(db.events.length===0){c.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted)">📅 Nenhum evento. Crie um para rastrear convites.</div>';return;}
+  c.innerHTML=db.events.map(e=>{
+    const total=db.addresses.length;
+    const inv=e.invitedIds?e.invitedIds.length:0;
+    const pct=total>0?Math.round(inv/total*100):0;
+    return`<div class="ev-card">
+      <div class="ev-hd"><div class="ev-title">${e.name}${e.date?' · '+fdate(e.date):''}</div><span class="ev-prog">${pct}%</span></div>
+      <div class="ev-bd">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${inv} de ${total} endereços convidados</div>
+        <div class="ev-bar"><div class="ev-fill" style="width:${pct}%"></div></div>
+        ${e.location?`<div style="font-size:12px;color:var(--muted)">📍 ${e.location}</div>`:''}
+        <div class="ia" style="margin-top:10px">
+          <button class="btn btn-p btn-sm" onclick="showEventDetail('${e.id}')">Gerenciar convites</button>
+          <button class="btn btn-o btn-sm" onclick="showEventModal('${e.id}')">✏️ Editar</button>
+          <button class="btn btn-d btn-sm" onclick="delEvent('${e.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function delEvent(id){if(!confirm('Excluir evento?'))return;db.events=db.events.filter(e=>e.id!==id);saveDB();renderEvents();toast('🗑 Evento removido.');}
+function showEventDetail(eid){
+  const e=db.events.find(x=>x.id===eid);if(!e)return;
+  if(!e.invitedIds)e.invitedIds=[];
+  const total=db.addresses.length;const inv=e.invitedIds.length;const pct=total>0?Math.round(inv/total*100):0;
+  document.getElementById('evdet-title').textContent=e.name;
+  document.getElementById('evdet-content').innerHTML=`
+    <div style="margin-bottom:12px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:5px">${inv} de ${total} convidados (${pct}%)</div>
+      <div class="ev-bar"><div class="ev-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div style="max-height:55vh;overflow-y:auto">
+      ${db.addresses.map(a=>{
+        const invited=e.invitedIds.includes(a.id);
+        return`<div class="addr-sel ${invited?'selected':''}" onclick="toggleInvite('${eid}','${a.id}',this)">
+          <div class="addr-sel-chk">${invited?'✓':''}</div>
+          <div><div style="font-weight:700;font-size:13px">${a.name||'Sem nome'}</div>
+          <div style="font-size:11px;color:var(--muted)">${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'Sem endereço'}</div></div>
+        </div>`;}).join('')}
+    </div>`;
+  document.getElementById('mo-evdet').style.display='flex';
+}
+function toggleInvite(eid,aid,el){
+  const e=db.events.find(x=>x.id===eid);if(!e)return;
+  if(!e.invitedIds)e.invitedIds=[];
+  const idx=e.invitedIds.indexOf(aid);
+  if(idx>=0){e.invitedIds.splice(idx,1);el.classList.remove('selected');el.querySelector('.addr-sel-chk').textContent='';}
+  else{e.invitedIds.push(aid);el.classList.add('selected');el.querySelector('.addr-sel-chk').textContent='✓';}
+  saveDB();
+  // update header
+  const total=db.addresses.length;const inv=e.invitedIds.length;const pct=total>0?Math.round(inv/total*100):0;
+  const hdr=document.querySelector('#evdet-content div:first-child');
+  if(hdr)hdr.querySelector('div:first-child').textContent=`${inv} de ${total} convidados (${pct}%)`;
+  const fill=document.querySelector('.ev-fill');if(fill)fill.style.width=pct+'%';
+}
+
+// ====== SHARE ======
+function renderShare(){updateShareUI();}
+function updateShareUI(){
+  const type=document.getElementById('sh-type').value;
+  const ex=document.getElementById('sh-extra-wrap');
+  const exLbl=document.getElementById('sh-extra-lbl');
+  const exSel=document.getElementById('sh-extra');
+  const manual=document.getElementById('sh-manual-list');
+  document.getElementById('sh-result').style.display='none';
+  document.getElementById('sh-html-result').style.display='none';
+  if(type==='custom'){manual.style.display='block';ex.style.display='none';renderShareManual();}
+  else{manual.style.display='none';}
+  if(type==='city'){ex.style.display='';exLbl.textContent='Cidade';exSel.innerHTML=db.cities.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');}
+  else if(type==='hood'){ex.style.display='';exLbl.textContent='Bairro';
+    const hoods=[...new Set(db.groups.map(g=>g.hood).filter(Boolean))];
+    exSel.innerHTML=hoods.map(h=>`<option value="${h}">${h}</option>`).join('');
+  }
+  else if(type==='group'){ex.style.display='';exLbl.textContent='Grupo';exSel.innerHTML=db.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');}
+  else if(type==='status'){ex.style.display='';exLbl.textContent='Status';exSel.innerHTML=Object.entries(STATUS_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');}
+}
+function renderShareManual(){
+  const c=document.getElementById('sh-manual-list');
+  c.innerHTML=db.addresses.map(a=>`
+    <div class="addr-sel ${shSelected.has(a.id)?'selected':''}" onclick="toggleShSel('${a.id}',this)">
+      <div class="addr-sel-chk">${shSelected.has(a.id)?'✓':''}</div>
+      <div><div style="font-weight:700;font-size:13px">${a.name||'Sem nome'}</div>
+      <div style="font-size:11px;color:var(--muted)">${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'Sem endereço'}</div></div>
+    </div>`).join('');
+}
+function toggleShSel(id,el){
+  if(shSelected.has(id)){shSelected.delete(id);el.classList.remove('selected');el.querySelector('.addr-sel-chk').textContent='';}
+  else{shSelected.add(id);el.classList.add('selected');el.querySelector('.addr-sel-chk').textContent='✓';}
+}
+function getShareList(){
+  const type=document.getElementById('sh-type').value;
+  const ex=document.getElementById('sh-extra').value;
+  if(type==='custom')return db.addresses.filter(a=>shSelected.has(a.id));
+  if(type==='city'){const gs=db.groups.filter(g=>g.cityId===ex).map(g=>g.id);return db.addresses.filter(a=>gs.includes(a.groupId));}
+  if(type==='hood'){const gs=db.groups.filter(g=>g.hood===ex).map(g=>g.id);return db.addresses.filter(a=>gs.includes(a.groupId));}
+  if(type==='group')return db.addresses.filter(a=>a.groupId===ex);
+  if(type==='status')return db.addresses.filter(a=>a.status===ex);
+  return db.addresses;
+}
+function genMapLink(){
+  const list=getShareList().filter(a=>a.lat||a.street);
+  if(list.length===0){toast('Nenhum endereço com localização.');return;}
+  const pts=list.slice(0,10).map(a=>{
+    if(a.lat&&a.lng)return`${a.lat},${a.lng}`;
+    return encodeURIComponent([a.street,a.number,a.neighborhood,a.city].filter(Boolean).join(', '));
+  });
+  let url;
+  if(pts.length===1){url=`https://www.google.com/maps/search/?api=1&query=${pts[0]}`;}
+  else{const o=pts[0];const d=pts[pts.length-1];const wp=pts.slice(1,-1).join('|');url=`https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}${wp?'&waypoints='+wp:''}`;}
+  document.getElementById('sh-link').value=url;
+  document.getElementById('sh-result').style.display='block';
+}
+function cpyLink(){navigator.clipboard.writeText(document.getElementById('sh-link').value).then(()=>toast('🔗 Copiado!')).catch(()=>toast('Selecione e copie manualmente.'));}
+function waShare(){const url=encodeURIComponent('🗺 Link do mapa dos territórios:\n'+document.getElementById('sh-link').value);window.open('https://wa.me/?text='+url,'_blank');}
+
+function genHTMLPage(){
+  const list=getShareList().filter(a=>a.lat&&a.lng);
+  if(list.length===0){toast('Nenhum endereço com coordenadas GPS.');return;}
+  genHTMLData=list;
+  document.getElementById('sh-html-result').style.display='block';
+}
+function dlHTML(){
+  if(!genHTMLData||genHTMLData.length===0)return;
+  const markers=genHTMLData.map(a=>{
+    const g=db.groups.find(x=>x.id===a.groupId);
+    const ppl=a.people&&a.people.length>0?a.people.map(p=>`<div>👤 ${p.name||'?'} ${p.nationality?'('+p.nationality+')':''} ${p.phone?'· '+p.phone:''}</div>`).join(''):'';
+    const lastV=a.visits&&a.visits.length>0?fdate(a.visits[a.visits.length-1].date):'Nunca';
+    const popup=`<b>${a.name||'Sem nome'}</b><br>${STATUS_ICON[a.status]||''} ${STATUS_LABEL[a.status]||''}<br>📍 ${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'—'}<br>${g?'🗂 '+g.name+'<br>':''}${ppl}📅 Última visita: ${lastV}${a.bestTime?'<br>⏰ '+a.bestTime:''}${a.notes?'<br>📝 '+a.notes:''}<br><a href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank" style="color:#6d28d9;font-weight:700">🗺 Ir até lá</a>`;
+    return`L.marker([${a.lat},${a.lng}]).addTo(map).bindPopup(${JSON.stringify(popup)},{maxWidth:260});`;
+  }).join('\n');
+  const centerLat=genHTMLData[0].lat;const centerLng=genHTMLData[0].lng;
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mapa de Territórios</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><style>body{margin:0}#map{height:100vh}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script><script>var map=L.map('map').setView([${centerLat},${centerLng}],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);${markers}<\/script></body></html>`;
+  const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);a.download='mapa_territorios.html';a.click();
+  toast('⬇ Página HTML gerada!');
+}
+
+// ====== DATA ======
+function exportAll(){
+  const data=JSON.stringify({addresses:db.addresses,groups:db.groups,cities:db.cities,events:db.events,photos:db.photos,exportedAt:new Date().toISOString()},null,2);
+  dl(data,'territorios_'+new Date().toISOString().slice(0,10)+'.json');
+  toast('⬇ Exportado!');
+}
+function showExportGroupModal(){
+  document.getElementById('exp-g-sel').innerHTML=db.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');
+  document.getElementById('mo-expg').style.display='flex';
+}
+function doExpGroup(){
+  const gid=document.getElementById('exp-g-sel').value;if(!gid){toast('Selecione um grupo');return;}
+  const g=db.groups.find(x=>x.id===gid);
+  const addrs=db.addresses.filter(a=>a.groupId===gid);
+  const photos={};addrs.forEach(a=>{if(db.photos[a.id])photos[a.id]=db.photos[a.id];});
+  const data=JSON.stringify({addresses:addrs,groups:[g],cities:db.cities,events:[],photos,exportedAt:new Date().toISOString()},null,2);
+  dl(data,`grupo_${g.name.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.json`);
+  closeModal('mo-expg');toast('⬇ Grupo exportado!');
+}
+function dl(content,filename){const a=document.createElement('a');a.href='data:application/json;charset=utf-8,'+encodeURIComponent(content);a.download=filename;a.click();}
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      const newAddrs=data.addresses||[];
+      const conflicts=[];const toAdd=[];
+      newAddrs.forEach(na=>{
+        const existing=db.addresses.find(a=>a.id===na.id);
+        if(existing){
+          // Check if similar by address
+          const same=existing.street===na.street&&existing.name===na.name;
+          conflicts.push({existing,incoming:na,same});
+        } else {
+          // Check name/street similarity
+          const similar=db.addresses.find(a=>a.name&&na.name&&a.name.toLowerCase()===na.name.toLowerCase()&&a.street&&na.street&&a.street.toLowerCase()===na.street.toLowerCase());
+          if(similar){conflicts.push({existing:similar,incoming:na,same:false,likely_dup:true});}
+          else{toAdd.push(na);}
+        }
+      });
+      pendingImport={data,toAdd,conflicts};
+      if(conflicts.length>0){showConflicts(conflicts);}
+      else{finishImport(toAdd,[],data);}}
+    catch(err){toast('❌ Arquivo inválido.');}
+  };
+  reader.readAsText(file);e.target.value='';
+}
+function showConflicts(conflicts){
+  document.getElementById('conflict-list').innerHTML=conflicts.map((c,i)=>`
+    <div class="conf-card">
+      <div style="font-size:11px;font-weight:700;color:var(--warn);margin-bottom:5px">${c.likely_dup?'⚠️ Possível duplicata':c.same?'🔄 Mesmo ID, mesmo endereço':'🔄 Mesmo ID'}</div>
+      <div style="font-size:13px"><b>Existente:</b> ${c.existing.name||'—'} — ${[c.existing.street,c.existing.number].filter(Boolean).join(', ')||'—'} (atualizado: ${c.existing.updatedAt?c.existing.updatedAt.slice(0,10):'—'})</div>
+      <div style="font-size:13px"><b>Importado:</b> ${c.incoming.name||'—'} — ${[c.incoming.street,c.incoming.number].filter(Boolean).join(', ')||'—'} (atualizado: ${c.incoming.updatedAt?c.incoming.updatedAt.slice(0,10):'—'})</div>
+    </div>`).join('');
+  pendingConflicts=conflicts;
+  document.getElementById('mo-conflict').style.display='flex';
+}
+function resolveConflicts(mode){
+  if(!pendingImport)return;
+  const {data,toAdd,conflicts}=pendingImport;
+  const extra=[];
+  conflicts.forEach(c=>{
+    if(mode==='keep_new'){const idx=db.addresses.findIndex(a=>a.id===c.existing.id);if(idx>=0)db.addresses[idx]=c.incoming;else db.addresses.push(c.incoming);}
+    else if(mode==='keep_both'){extra.push(c.incoming);}
+    // keep_old: do nothing
+  });
+  finishImport([...toAdd,...extra],conflicts,data);
+  document.getElementById('mo-conflict').style.display='none';
+  pendingImport=null;
+}
+function finishImport(toAdd,conflicts,data){
+  toAdd.forEach(a=>db.addresses.push(a));
+  (data.groups||[]).forEach(g=>{if(!db.groups.find(x=>x.id===g.id))db.groups.push(g);});
+  (data.cities||[]).forEach(c=>{if(!db.cities.find(x=>x.id===c.id))db.cities.push(c);});
+  (data.events||[]).forEach(e=>{if(!db.events.find(x=>x.id===e.id))db.events.push(e);});
+  if(data.photos)Object.entries(data.photos).forEach(([k,v])=>{if(!db.photos[k])db.photos[k]=v;});
+  saveDB();renderHome();renderAddresses();renderGroups();
+  toast(`✅ ${toAdd.length} adicionados${conflicts.length>0?', '+conflicts.length+' conflito(s) resolvido(s)':''}`);
+}
+function clearAll(){if(!confirm('Apagar TUDO?'))return;if(!confirm('Tem certeza absoluta?'))return;db={addresses:[],groups:[],cities:[],events:[],photos:{}};saveDB();renderHome();renderAddresses();renderGroups();renderEvents();toast('🗑 Dados apagados.');}
+
+// ====== MODALS ======
+function closeModal(id){document.getElementById(id).style.display='none';}
+function cmo(e,id){if(e.target.id===id)closeModal(id);}
+
+// ====== TOAST ======
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ====== INIT ======
+loadDB();loadTheme();renderHome();renderAddresses();
+</script>
+</body>
+</html>

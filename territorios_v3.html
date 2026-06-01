@@ -1,0 +1,1806 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#5b21b6">
+<title>Territórios Bíblicos</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --p900:#2e1065;--p800:#3b0764;--p700:#4a1590;--p600:#6d28d9;--p500:#7c3aed;
+  --p400:#8b5cf6;--p300:#a78bfa;--p200:#c4b5fd;--p100:#ede9fe;--p50:#f5f3ff;
+  --bg:#f5f3ff;--card:#fff;--text:#1a1a2e;--muted:#6b7280;--border:#e5e7eb;
+  --radius:12px;--shadow:0 2px 12px rgba(91,33,182,.10);
+  --success:#15803d;--danger:#b91c1c;--warn:#b45309;
+}
+[data-theme=dark]{
+  --bg:#0f0a1e;--card:#1a1030;--text:#f3f0ff;--muted:#9ca3af;--border:#2d2040;
+  --shadow:0 2px 12px rgba(0,0,0,.4);--p50:#1e1040;--p100:#2d1a5e;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+/* ===LOGIN=== */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,var(--p900),var(--p600));display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;}
+.login-box{background:white;border-radius:20px;padding:32px 28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.login-logo{text-align:center;font-size:40px;margin-bottom:6px;}
+.login-title{text-align:center;font-size:22px;font-weight:800;color:var(--p700);margin-bottom:4px;}
+.login-sub{text-align:center;font-size:13px;color:var(--muted);margin-bottom:24px;}
+.login-box label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.login-box input{width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:11px 13px;font-size:15px;margin-bottom:14px;outline:none;}
+.login-box input:focus{border-color:var(--p400);}
+.login-err{background:#fee2e2;color:#991b1b;padding:9px 13px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none;}
+.btn-login{width:100%;background:var(--p600);color:white;border:none;padding:13px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;}
+.btn-login:hover{background:var(--p500);}
+/* ===PUBLIC VIEW=== */
+#public-screen{display:none;min-height:100vh;}
+.pub-header{background:var(--p700);color:white;padding:14px 16px;display:flex;align-items:center;gap:10px;}
+.pub-header h1{font-size:17px;font-weight:800;}
+.pub-header p{font-size:12px;opacity:.8;}
+#pub-map{height:calc(100vh - 130px);}
+.pub-bottom{background:var(--p800);padding:10px 16px;display:flex;gap:8px;}
+/* ===HEADER=== */
+.hdr{background:var(--p700);color:#fff;padding:0 14px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:300;box-shadow:0 2px 10px rgba(0,0,0,.3);}
+.hdr-title{font-size:17px;font-weight:800;display:flex;align-items:center;gap:7px;}
+.hdr-title em{color:var(--p200);font-style:normal;}
+.hdr-actions{display:flex;gap:6px;align-items:center;}
+.icon-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+.icon-btn:hover{background:rgba(255,255,255,.28);}
+.notif-badge{position:relative;}
+.badge{position:absolute;top:-3px;right:-3px;background:#ef4444;color:white;font-size:9px;font-weight:800;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--p700);}
+.role-chip{background:rgba(255,255,255,.2);padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+/* ===NAV=== */
+.nav{display:flex;background:var(--p800);position:sticky;top:54px;z-index:299;overflow-x:auto;}
+.nav::-webkit-scrollbar{display:none;}
+.nb{flex:1;min-width:52px;background:none;border:none;color:rgba(255,255,255,.5);padding:8px 3px 6px;cursor:pointer;font-size:9px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px;text-transform:uppercase;letter-spacing:.3px;border-bottom:3px solid transparent;}
+.nb svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;}
+.nb.active{color:var(--p200);border-bottom-color:var(--p300);}
+/* ===PAGES=== */
+.pg{display:none;padding:13px;max-width:720px;margin:0 auto;padding-bottom:80px;}
+.pg.active{display:block;}
+/* ===CARDS=== */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:11px;overflow:hidden;}
+.card-hd{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.card-hd h3{font-size:13px;font-weight:700;color:var(--p600);}
+.card-bd{padding:14px;}
+/* ===STATS=== */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+@media(min-width:480px){.stats{grid-template-columns:repeat(4,1fr);}}
+.stat{background:var(--card);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow);border-left:4px solid var(--p400);}
+.stat-n{font-size:24px;font-weight:800;color:var(--p600);}
+.stat-l{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+/* ===FORMS=== */
+.lbl{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+input,select,textarea{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;font-size:14px;color:var(--text);background:var(--card);outline:none;transition:border-color .2s;font-family:inherit;}
+input:focus,select:focus,textarea:focus{border-color:var(--p400);}
+textarea{resize:vertical;min-height:70px;}
+.fr{margin-bottom:11px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+/* ===BUTTONS=== */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 15px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;white-space:nowrap;}
+.btn-p{background:var(--p600);color:#fff;}.btn-p:hover{background:var(--p500);}
+.btn-o{background:transparent;color:var(--p600);border:1.5px solid var(--p400);}.btn-o:hover{background:var(--p50);}
+.btn-d{background:var(--danger);color:#fff;}
+.btn-s{background:var(--success);color:#fff;}
+.btn-w{background:#f59e0b;color:#fff;}
+.btn-full{width:100%;justify-content:center;}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:6px;}
+/* ===ADDRESS CARDS=== */
+.ac{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;overflow:hidden;cursor:pointer;transition:.15s;}
+.ac:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(91,33,182,.15);}
+.ac-hd{padding:10px 12px;display:flex;align-items:flex-start;gap:8px;}
+.ac-ico{width:36px;height:36px;border-radius:9px;background:var(--p100);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;}
+.ac-info{flex:1;min-width:0;}
+.ac-name{font-size:13px;font-weight:700;color:var(--p700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ac-street{font-size:11px;color:var(--muted);}
+.ac-code{font-size:10px;color:var(--p400);font-weight:700;font-family:monospace;}
+.ac-tags{display:flex;gap:5px;flex-wrap:wrap;padding:0 12px 10px;}
+.tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
+.t-purple{background:var(--p100);color:var(--p700);}
+.t-green{background:#dcfce7;color:#166534;}
+.t-amber{background:#fef3c7;color:#92400e;}
+.t-red{background:#fee2e2;color:#991b1b;}
+.t-blue{background:#dbeafe;color:#1e40af;}
+.t-gray{background:#f3f4f6;color:#374151;}
+/* ===SEARCH=== */
+.srch{display:flex;gap:7px;margin-bottom:11px;}
+.srch input{flex:1;}
+.frow{display:flex;gap:6px;overflow-x:auto;margin-bottom:11px;padding-bottom:2px;}
+.frow::-webkit-scrollbar{display:none;}
+.fc{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--muted);}
+.fc.active{background:var(--p600);color:#fff;border-color:var(--p600);}
+/* ===MODAL=== */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:flex-end;justify-content:center;}
+.mo.center{align-items:center;}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:720px;max-height:93vh;overflow-y:auto;padding:18px;}
+.modal.center{border-radius:16px;max-height:85vh;margin:14px;width:calc(100% - 28px);}
+.mo-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.mo-hd h2{font-size:16px;font-weight:800;color:var(--p700);}
+.x-btn{width:30px;height:30px;border-radius:50%;background:var(--bg);border:none;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+/* ===SECTION HEADER=== */
+.sh{font-size:11px;font-weight:700;color:var(--p600);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 9px;padding-bottom:4px;border-bottom:2px solid var(--p100);}
+/* ===DETAIL=== */
+.dr{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.dr:last-child{border:none;}
+.dl{color:var(--muted);min-width:105px;font-weight:600;font-size:12px;flex-shrink:0;}
+.dv{color:var(--text);flex:1;}
+/* ===PERSON=== */
+.pc{background:var(--bg);border-radius:9px;padding:10px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.pa{width:32px;height:32px;border-radius:50%;background:var(--p600);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+/* ===PHOTOS=== */
+.ph-area{border:2px dashed var(--border);border-radius:9px;padding:16px;text-align:center;cursor:pointer;color:var(--muted);margin-bottom:11px;font-size:13px;}
+.ph-area:hover{border-color:var(--p400);color:var(--p600);}
+.ph-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:11px;}
+.ph-thumb{aspect-ratio:1;border-radius:7px;overflow:hidden;position:relative;background:#eee;}
+.ph-thumb img{width:100%;height:100%;object-fit:cover;}
+.ph-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;}
+/* ===FAB=== */
+.fab{position:fixed;bottom:20px;right:16px;width:52px;height:52px;border-radius:50%;background:var(--p600);color:#fff;border:none;cursor:pointer;font-size:24px;box-shadow:0 4px 18px rgba(109,40,217,.45);display:flex;align-items:center;justify-content:center;z-index:200;}
+.fab:active{transform:scale(.94);}
+/* ===TOAST=== */
+.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;z-index:600;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;}
+.toast.show{opacity:1;}
+/* ===VISIT LOG=== */
+.vl{background:var(--bg);border-radius:8px;padding:9px;margin-bottom:5px;font-size:12px;}
+.vl-hd{display:flex;justify-content:space-between;font-weight:700;margin-bottom:2px;}
+/* ===SUGGESTION=== */
+.sug{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;border-left:4px solid var(--p400);cursor:pointer;}
+.sug:hover{transform:translateY(-1px);}
+.sug-ico{font-size:22px;}
+.sug-info{flex:1;}
+.sug-name{font-size:13px;font-weight:700;color:var(--p700);}
+.sug-days{font-size:11px;color:var(--muted);}
+/* ===EVENT=== */
+.ev-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;overflow:hidden;}
+.ev-hd{background:var(--p700);color:#fff;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;}
+.ev-bar{height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin:5px 0 9px;}
+.ev-fill{height:100%;background:var(--p500);border-radius:4px;transition:.5s;}
+/* ===MAP=== */
+#main-map{height:calc(100vh - 200px);min-height:350px;border-radius:var(--radius);overflow:hidden;}
+.lp-name{font-weight:800;color:#4a1590;font-size:13px;margin-bottom:3px;}
+.lp-row{color:#444;margin-bottom:2px;font-size:12px;}
+.lp-btn{display:block;margin-top:7px;background:#6d28d9;color:#fff;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;width:100%;text-align:center;text-decoration:none;}
+/* ===GROUP TREE=== */
+.gt-city{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:9px;overflow:hidden;}
+.gt-city-hd{padding:11px 14px;background:var(--p700);color:#fff;font-weight:800;font-size:13px;display:flex;justify-content:space-between;align-items:center;}
+.gt-hood-hd{padding:9px 14px 9px 26px;background:var(--p50);border-bottom:1px solid var(--border);font-weight:700;font-size:12px;color:var(--p700);}
+.gt-group{padding:9px 14px 9px 40px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;cursor:pointer;}
+.gt-group:hover{background:var(--bg);}
+/* ===SHARE=== */
+.addr-sel{background:var(--card);border-radius:9px;padding:9px 12px;margin-bottom:6px;display:flex;align-items:center;gap:9px;cursor:pointer;border:1.5px solid var(--border);}
+.addr-sel.selected{border-color:var(--p500);background:var(--p50);}
+.addr-sel-chk{width:20px;height:20px;border-radius:5px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;}
+.selected .addr-sel-chk{background:var(--p600);border-color:var(--p600);color:#fff;}
+/* ===CENSUS=== */
+.cen-street{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;}
+.cen-status{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.cen-done{background:#22c55e;}.cen-prog{background:#f59e0b;}.cen-pend{background:#9ca3af;}
+/* ===NOTIFICATIONS=== */
+.notif-item{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:8px;padding:12px 14px;border-left:4px solid var(--p400);}
+.notif-item.pending{border-left-color:#f59e0b;}
+.notif-item.approved{border-left-color:#22c55e;}
+.notif-item.rejected{border-left-color:#ef4444;}
+/* ===LINK DISPLAY=== */
+.link-box{background:var(--p50);border:1.5px solid var(--p200);border-radius:10px;padding:12px;margin-top:11px;}
+.link-row{display:flex;gap:7px;margin-top:7px;}
+.link-row input{font-size:11px;font-family:monospace;}
+/* ===LOADING=== */
+.loading{position:fixed;inset:0;background:rgba(15,10,30,.8);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;}
+.spinner{width:40px;height:40px;border:4px solid rgba(255,255,255,.2);border-top-color:var(--p300);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:14px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.div{height:1px;background:var(--border);margin:12px 0;}
+.ia{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+.warn-badge{background:#fef3c7;color:#92400e;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-left:6px;}
+.sync-dot.offline{background:#ef4444;}
+</style>
+</head>
+<body>
+<!-- LOADING -->
+<div id="loading" class="loading"><div class="spinner"></div><span id="loading-msg">Carregando...</span></div>
+
+<!-- LOGIN -->
+<div id="login-screen" style="display:none">
+  <div class="login-box">
+    <div class="login-logo">📖</div>
+    <div class="login-title">Territórios Bíblicos</div>
+    <div class="login-sub">Gerenciador de território da congregação</div>
+    <div class="login-err" id="login-err"></div>
+    <label class="lbl">Email</label>
+    <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+    <label class="lbl">Senha</label>
+    <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+    <button class="btn-login" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- PUBLIC VIEW (link compartilhado) -->
+<div id="public-screen">
+  <div class="pub-header">
+    <div>
+      <h1>📖 Territórios</h1>
+      <p id="pub-info">Carregando...</p>
+    </div>
+    <div style="margin-left:auto;font-size:12px;opacity:.7" id="pub-expiry"></div>
+  </div>
+  <div id="pub-map"></div>
+  <div class="pub-bottom">
+    <button class="btn btn-p btn-sm" onclick="showPubNewAddr()">+ Novo endereço</button>
+    <button class="btn btn-s btn-sm" id="pub-save-btn" onclick="submitPubChanges()" style="display:none">📤 Enviar atualizações</button>
+    <span id="pub-pending-count" style="font-size:12px;color:var(--p200);align-self:center;margin-left:auto"></span>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none">
+  <div class="hdr">
+    <div class="hdr-title">📖 <em>Territórios</em><span class="sync-dot" id="sync-dot" title="Online"></span></div>
+    <div class="hdr-actions">
+      <span class="role-chip" id="role-chip">Admin</span>
+      <button class="icon-btn notif-badge" onclick="showPage('notif',null)" title="Notificações">
+        🔔<span class="badge" id="notif-badge" style="display:none">0</span>
+      </button>
+      <button class="icon-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
+      <button class="icon-btn" onclick="doLogout()" title="Sair">🚪</button>
+    </div>
+  </div>
+  <nav class="nav">
+    <button class="nb active" onclick="showPage('home',this)" data-pg="home">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início
+    </button>
+    <button class="nb" onclick="showPage('addresses',this)" data-pg="addresses">
+      <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>End.
+    </button>
+    <button class="nb" onclick="showPage('map',this)" data-pg="map">
+      <svg viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>Mapa
+    </button>
+    <button class="nb" onclick="showPage('groups',this)" data-pg="groups">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Grupos
+    </button>
+    <button class="nb" onclick="showPage('census',this)" data-pg="census">
+      <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Senso
+    </button>
+    <button class="nb" onclick="showPage('events',this)" data-pg="events">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Eventos
+    </button>
+    <button class="nb" onclick="showPage('share',this)" data-pg="share">
+      <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Link
+    </button>
+    <button class="nb" onclick="showPage('data',this)" data-pg="data">
+      <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Dados
+    </button>
+  </nav>
+
+  <!-- HOME -->
+  <div id="pg-home" class="pg active">
+    <div class="stats" id="stats-grid"></div>
+    <div class="card"><div class="card-hd"><h3>🗺 Sugestão de Território</h3></div><div class="card-bd" id="sug-list"></div></div>
+    <div class="card" style="margin-top:9px"><div class="card-hd"><h3>📊 Senso — Cobertura</h3></div><div class="card-bd" id="census-summary"></div></div>
+    <div class="card" style="margin-top:9px"><div class="card-hd"><h3>⚠️ Endereços Incompletos</h3></div><div class="card-bd" id="incomplete-list"></div></div>
+    <div class="card" style="margin-top:9px"><div class="card-hd"><h3>📊 Por Nacionalidade</h3></div><div class="card-bd" id="nat-chart"></div></div>
+  </div>
+
+  <!-- ADDRESSES -->
+  <div id="pg-addresses" class="pg">
+    <div class="srch"><input type="text" id="srch-input" placeholder="🔍 Nome, rua, código, bairro..." oninput="renderAddresses()"></div>
+    <div class="frow" id="filter-row">
+      <div class="fc active" data-f="all" onclick="setFilter(this,'all')">Todos</div>
+      <div class="fc" data-f="pending" onclick="setFilter(this,'pending')">Não visitados</div>
+      <div class="fc" data-f="revisit" onclick="setFilter(this,'revisit')">Revisitas</div>
+      <div class="fc" data-f="studying" onclick="setFilter(this,'studying')">Estudando</div>
+      <div class="fc" data-f="nogroup" onclick="setFilter(this,'nogroup')">Sem grupo</div>
+      <div class="fc" data-f="novisit" onclick="setFilter(this,'novisit')">Sem visita</div>
+    </div>
+    <div id="addr-list"></div>
+  </div>
+
+  <!-- MAP -->
+  <div id="pg-map" class="pg" style="padding:10px">
+    <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
+      <select id="map-fg" onchange="renderMainMap()" style="flex:1;min-width:120px"><option value="all">Todos grupos</option></select>
+      <select id="map-fs" onchange="renderMainMap()" style="flex:1;min-width:120px">
+        <option value="all">Todos status</option>
+        <option value="pending">Não visitados</option>
+        <option value="revisit">Revisitas</option>
+        <option value="studying">Estudando</option>
+      </select>
+    </div>
+    <div id="main-map"></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:5px">Clique no pin para ver detalhes e navegar.</div>
+  </div>
+
+  <!-- GROUPS -->
+  <div id="pg-groups" class="pg">
+    <div style="display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="showGroupModal()">+ Grupo</button>
+      <button class="btn btn-o btn-sm" onclick="showCityModal()">+ Cidade</button>
+      <button class="btn btn-o btn-sm" onclick="showHoodModal()">+ Bairro</button>
+    </div>
+    <div id="groups-tree"></div>
+  </div>
+
+  <!-- CENSUS -->
+  <div id="pg-census" class="pg">
+    <div style="display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="showCensusStreetModal()">+ Rua para senso</button>
+      <select id="cen-city-filter" onchange="renderCensus()" style="flex:1"><option value="all">Todas as cidades</option></select>
+      <select id="cen-hood-filter" onchange="renderCensus()" style="flex:1"><option value="all">Todos os bairros</option></select>
+    </div>
+    <div id="census-stats" style="margin-bottom:11px"></div>
+    <div id="census-list"></div>
+  </div>
+
+  <!-- EVENTS -->
+  <div id="pg-events" class="pg">
+    <button class="btn btn-p btn-sm" style="margin-bottom:11px" onclick="showEventModal()">+ Novo Evento</button>
+    <div id="events-list"></div>
+  </div>
+
+  <!-- SHARE / LINKS -->
+  <div id="pg-share" class="pg">
+    <div class="card">
+      <div class="card-hd"><h3>🔗 Gerar Link para Publicador</h3></div>
+      <div class="card-bd">
+        <div class="fr"><label class="lbl">Descrição (para identificar)</label><input type="text" id="sh-label" placeholder="Ex: João — Grupo Centro"></div>
+        <div class="fg2">
+          <div class="fr"><label class="lbl">Tipo de filtro</label>
+            <select id="sh-type" onchange="updateShareUI()">
+              <option value="group">Grupo</option>
+              <option value="neighborhood">Bairro</option>
+              <option value="city">Cidade</option>
+              <option value="status">Status</option>
+              <option value="custom">Seleção manual</option>
+            </select>
+          </div>
+          <div class="fr" id="sh-val-wrap"><label class="lbl" id="sh-val-lbl">Grupo</label>
+            <select id="sh-val"></select>
+          </div>
+        </div>
+        <div id="sh-manual" style="display:none;max-height:280px;overflow-y:auto;margin-bottom:10px"></div>
+        <button class="btn btn-p btn-full" onclick="createShareLink()">🔗 Gerar Link</button>
+        <div id="sh-result" style="display:none" class="link-box">
+          <div style="font-size:11px;font-weight:700;color:var(--p700);margin-bottom:5px">Link gerado — expira em 15 dias:</div>
+          <div class="link-row"><input type="text" id="sh-link-out" readonly><button class="btn btn-p btn-sm" onclick="cpyLink()">Copiar</button></div>
+          <button class="btn btn-sm" style="background:#25d366;color:#fff;width:100%;justify-content:center;margin-top:7px" onclick="waShare()">📲 WhatsApp</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:9px">
+      <div class="card-hd"><h3>📋 Links Ativos</h3></div>
+      <div class="card-bd" id="active-links"></div>
+    </div>
+  </div>
+
+  <!-- NOTIFICATIONS -->
+  <div id="pg-notif" class="pg">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+      <h2 style="font-size:16px;font-weight:800;color:var(--p700)">🔔 Notificações</h2>
+      <button class="btn btn-o btn-sm" onclick="markAllRead()">Marcar lidas</button>
+    </div>
+    <div id="notif-list"></div>
+  </div>
+
+  <!-- DATA -->
+  <div id="pg-data" class="pg">
+    <div class="card">
+      <div class="card-hd"><h3>💾 Backup</h3></div>
+      <div class="card-bd">
+        <button class="btn btn-p btn-full" style="margin-bottom:8px" onclick="exportBackup()">⬇ Exportar backup JSON</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:9px">
+      <div class="card-hd"><h3>📥 Importar CSV de Territórios</h3></div>
+      <div class="card-bd">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:9px">Importe endereços de um arquivo CSV. Colunas esperadas: nome, rua, numero, bairro, cidade, lat, lng, status, grupo</p>
+        <label for="csv-file" class="ph-area">📂 Selecionar arquivo .csv</label>
+        <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="importCSV(event)">
+        <div id="csv-preview" style="margin-top:9px"></div>
+      </div>
+    </div>
+    <div id="admin-only-data" style="display:none">
+      <div class="card" style="margin-top:9px">
+        <div class="card-hd"><h3>👥 Usuários</h3></div>
+        <div class="card-bd">
+          <p style="font-size:12px;color:var(--muted);margin-bottom:9px">Convide anciãos/servos criando usuários no painel do Supabase (Authentication → Users) e defina o perfil aqui.</p>
+          <div id="users-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /app -->
+
+<!-- FAB -->
+<button class="fab" id="main-fab" onclick="showAddressModal()" style="display:none">＋</button>
+<div class="toast" id="toast"></div>
+<!-- ===== MODALS ===== -->
+
+<!-- ADDRESS MODAL -->
+<div id="mo-addr" class="mo" style="display:none" onclick="cmo(event,'mo-addr')">
+ <div class="modal">
+  <div class="mo-hd"><h2 id="mo-addr-title">Novo Endereço</h2><button class="x-btn" onclick="closeModal('mo-addr')">✕</button></div>
+  <input type="hidden" id="ei">
+  <div class="sh">📍 Localização</div>
+  <div class="fr"><label class="lbl">Nome / Referência *</label><input type="text" id="f-name" placeholder="Ex: Família Chen, Sr. Ahmad..."></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">CEP</label><input type="text" id="f-cep" placeholder="00000-000" oninput="maskCEP(this)" onblur="fetchCEP()"></div>
+    <div class="fr"><label class="lbl">Link Google Maps</label><input type="text" id="f-gmaps" placeholder="Cole o link aqui" onblur="parseGMapsLink()"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Rua *</label><input type="text" id="f-street" placeholder="Nome da rua"></div>
+    <div class="fr"><label class="lbl">Número</label><input type="text" id="f-number" placeholder="Nº"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Bairro</label><input type="text" id="f-hood" placeholder="Bairro"></div>
+    <div class="fr"><label class="lbl">Cidade</label><input type="text" id="f-city" placeholder="Cidade"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Complemento</label><input type="text" id="f-comp" placeholder="Apto, bloco..."></div>
+    <div class="fr"><label class="lbl">Código (gerado auto)</label><input type="text" id="f-code" placeholder="ABC123" style="font-family:monospace"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Latitude</label><input type="number" id="f-lat" placeholder="-23.5505" step="any"></div>
+    <div class="fr"><label class="lbl">Longitude</label><input type="number" id="f-lng" placeholder="-46.6333" step="any"></div>
+  </div>
+  <button class="btn btn-o btn-sm" onclick="getGeo()" style="margin-bottom:11px">📍 Usar localização atual</button>
+  <div class="sh">👥 Pessoas</div>
+  <div id="ppl-form"></div>
+  <button class="btn btn-o btn-sm" onclick="addPersonForm(null)" style="margin-bottom:11px">+ Adicionar pessoa</button>
+  <div class="sh">📋 Informações</div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Grupo</label><select id="f-group"><option value="">Sem grupo</option></select></div>
+    <div class="fr"><label class="lbl">Status</label>
+      <select id="f-status">
+        <option value="pending">Não visitado</option><option value="revisit">Revisita</option>
+        <option value="studying">Estudando a Bíblia</option><option value="unavailable">Não disponível</option>
+        <option value="no_interest">Não quer receber</option><option value="removed">Removido</option>
+        <option value="inactive">Inativo</option><option value="publisher">Publicador</option>
+        <option value="baptized">Batizado ativo</option>
+      </select>
+    </div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Melhor horário</label><input type="text" id="f-besttime" placeholder="Ex: manhãs"></div>
+    <div class="fr"><label class="lbl">Última publicação</label><input type="text" id="f-lastpub" placeholder="Ex: Estude comigo"></div>
+  </div>
+  <div class="fr"><label class="lbl">Observações</label><textarea id="f-notes" placeholder="Idioma, informações importantes..."></textarea></div>
+  <div class="sh">📅 Visitas</div>
+  <div id="visits-log"></div>
+  <button class="btn btn-o btn-sm" onclick="showAddVisitForm()" style="margin-bottom:11px">+ Registrar visita</button>
+  <div id="add-visit-form" style="display:none;background:var(--bg);border-radius:9px;padding:11px;margin-bottom:11px">
+    <div class="fg2">
+      <div class="fr"><label class="lbl">Data</label><input type="date" id="vf-date"></div>
+      <div class="fr"><label class="lbl">Resultado</label>
+        <select id="vf-result"><option value="attended">Atendeu</option><option value="home_busy">Em casa / ocupado</option><option value="not_home">Não estava</option><option value="no_interest">Não quis atender</option></select>
+      </div>
+    </div>
+    <div class="fg2">
+      <div class="fr"><label class="lbl">Quem atendeu</label><input type="text" id="vf-who" placeholder="Nome"></div>
+      <div class="fr"><label class="lbl">Horário</label><input type="time" id="vf-time"></div>
+    </div>
+    <div class="fr"><label class="lbl">Observação</label><input type="text" id="vf-note" placeholder="Notas..."></div>
+    <div class="ia"><button class="btn btn-p btn-sm" onclick="addVisitToForm()">✓ Adicionar</button><button class="btn btn-o btn-sm" onclick="document.getElementById('add-visit-form').style.display='none'">Cancelar</button></div>
+  </div>
+  <div class="sh">📸 Fotos</div>
+  <label for="f-photos" class="ph-area">📷 Adicionar fotos</label>
+  <input type="file" id="f-photos" accept="image/*" multiple style="display:none" onchange="handlePhotos(event)">
+  <div class="ph-grid" id="ph-prev"></div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn btn-p btn-full" onclick="saveAddress()">💾 Salvar</button>
+    <button id="del-btn" class="btn btn-d" onclick="delAddr()" style="display:none">🗑</button>
+  </div>
+ </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div id="mo-detail" class="mo" style="display:none" onclick="cmo(event,'mo-detail')">
+ <div class="modal">
+  <div class="mo-hd"><h2 id="det-title">Detalhes</h2><button class="x-btn" onclick="closeModal('mo-detail')">✕</button></div>
+  <div id="det-content"></div>
+  <div class="ia" style="margin-top:13px">
+    <button class="btn btn-p" id="det-map-btn">🗺 Ir até lá</button>
+    <button class="btn btn-o" id="det-edit-btn">✏️ Editar</button>
+    <button class="btn btn-o btn-sm" id="det-visit-btn">📅 Visita rápida</button>
+  </div>
+ </div>
+</div>
+
+<!-- GROUP MODAL -->
+<div id="mo-group" class="mo center" style="display:none" onclick="cmo(event,'mo-group')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>Grupo</h2><button class="x-btn" onclick="closeModal('mo-group')">✕</button></div>
+  <input type="hidden" id="g-id">
+  <div class="fr"><label class="lbl">Nome *</label><input type="text" id="g-name" placeholder="Ex: Setor 1..."></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Ícone</label><select id="g-icon"><option value="📍">📍</option><option value="🔵">🔵</option><option value="🟢">🟢</option><option value="🟡">🟡</option><option value="🔴">🔴</option><option value="🟣">🟣</option><option value="🟠">🟠</option></select></div>
+    <div class="fr"><label class="lbl">Responsável</label><input type="text" id="g-leader"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Cidade</label><select id="g-city"><option value="">Sem cidade</option></select></div>
+    <div class="fr"><label class="lbl">Bairro</label><select id="g-hood"><option value="">Sem bairro</option></select></div>
+  </div>
+  <button class="btn btn-p btn-full" onclick="saveGroup()">Salvar</button>
+ </div>
+</div>
+
+<!-- CITY MODAL -->
+<div id="mo-city" class="mo center" style="display:none" onclick="cmo(event,'mo-city')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>Cidade</h2><button class="x-btn" onclick="closeModal('mo-city')">✕</button></div>
+  <div class="fr"><label class="lbl">Nome *</label><input type="text" id="c-name" placeholder="Ex: São Paulo"></div>
+  <button class="btn btn-p btn-full" onclick="saveCity()">Salvar</button>
+ </div>
+</div>
+
+<!-- HOOD MODAL -->
+<div id="mo-hood" class="mo center" style="display:none" onclick="cmo(event,'mo-hood')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>Bairro</h2><button class="x-btn" onclick="closeModal('mo-hood')">✕</button></div>
+  <div class="fr"><label class="lbl">Cidade</label><select id="h-city"><option value="">Selecione</option></select></div>
+  <div class="fr"><label class="lbl">Nome do Bairro *</label><input type="text" id="h-name" placeholder="Ex: Centro, Vila Nova..."></div>
+  <button class="btn btn-p btn-full" onclick="saveHood()">Salvar</button>
+ </div>
+</div>
+
+<!-- EVENT MODAL -->
+<div id="mo-event" class="mo center" style="display:none" onclick="cmo(event,'mo-event')">
+ <div class="modal center">
+  <div class="mo-hd"><h2 id="mo-ev-title">Evento</h2><button class="x-btn" onclick="closeModal('mo-event')">✕</button></div>
+  <input type="hidden" id="ev-id">
+  <div class="fr"><label class="lbl">Nome *</label><input type="text" id="ev-name" placeholder="Ex: Celebração da Memória..."></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Data</label><input type="date" id="ev-date"></div>
+    <div class="fr"><label class="lbl">Local</label><input type="text" id="ev-loc"></div>
+  </div>
+  <div class="fr"><label class="lbl">Observações</label><textarea id="ev-notes" style="min-height:55px"></textarea></div>
+  <button class="btn btn-p btn-full" onclick="saveEvent()">Salvar</button>
+ </div>
+</div>
+
+<!-- EVENT DETAIL (convites) -->
+<div id="mo-evdet" class="mo" style="display:none" onclick="cmo(event,'mo-evdet')">
+ <div class="modal">
+  <div class="mo-hd"><h2 id="evdet-title">Gerenciar Convites</h2><button class="x-btn" onclick="closeModal('mo-evdet')">✕</button></div>
+  <div id="evdet-content"></div>
+ </div>
+</div>
+
+<!-- CENSUS STREET MODAL -->
+<div id="mo-cen" class="mo center" style="display:none" onclick="cmo(event,'mo-cen')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>Rua para Senso</h2><button class="x-btn" onclick="closeModal('mo-cen')">✕</button></div>
+  <input type="hidden" id="cen-id">
+  <div class="fr"><label class="lbl">Nome da Rua *</label><input type="text" id="cen-street" placeholder="Ex: Rua das Flores"></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Cidade</label><select id="cen-city"><option value="">Selecione</option></select></div>
+    <div class="fr"><label class="lbl">Bairro</label><select id="cen-hood"><option value="">Selecione</option></select></div>
+  </div>
+  <div class="fr"><label class="lbl">Grupo vinculado</label><select id="cen-group"><option value="">Sem grupo</option></select></div>
+  <div class="fr"><label class="lbl">Observações</label><textarea id="cen-notes" style="min-height:55px" placeholder="Informações sobre a rua..."></textarea></div>
+  <button class="btn btn-p btn-full" onclick="saveCensusStreet()">Salvar</button>
+ </div>
+</div>
+
+<!-- CENSUS SESSION MODAL (breakpoint) -->
+<div id="mo-cen-sess" class="mo center" style="display:none" onclick="cmo(event,'mo-cen-sess')">
+ <div class="modal center">
+  <div class="mo-hd"><h2 id="cen-sess-title">Registrar Senso</h2><button class="x-btn" onclick="closeModal('mo-cen-sess')">✕</button></div>
+  <input type="hidden" id="cens-street-id">
+  <div class="fr"><label class="lbl">Responsável / Publicador</label><input type="text" id="cens-worker" placeholder="Nome de quem está sensando"></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Status da rua</label>
+      <select id="cens-status"><option value="in_progress">Em progresso</option><option value="done">Concluída</option></select>
+    </div>
+    <div class="fr"><label class="lbl">Data</label><input type="date" id="cens-date"></div>
+  </div>
+  <div class="fr"><label class="lbl">Parou onde? (breakpoint)</label><input type="text" id="cens-stop" placeholder="Ex: Parei no nº 45, retomar da 46..."></div>
+  <div class="fr"><label class="lbl">Observações</label><textarea id="cens-note" style="min-height:55px"></textarea></div>
+  <button class="btn btn-p btn-full" onclick="saveCensusSession()">Salvar</button>
+ </div>
+</div>
+
+<!-- QUICK VISIT MODAL -->
+<div id="mo-qvisit" class="mo center" style="display:none" onclick="cmo(event,'mo-qvisit')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>📅 Visita Rápida</h2><button class="x-btn" onclick="closeModal('mo-qvisit')">✕</button></div>
+  <input type="hidden" id="qv-id">
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Data</label><input type="date" id="qvf-date"></div>
+    <div class="fr"><label class="lbl">Resultado</label>
+      <select id="qvf-result"><option value="attended">Atendeu</option><option value="home_busy">Em casa / ocupado</option><option value="not_home">Não estava</option><option value="no_interest">Não quis atender</option></select>
+    </div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Quem atendeu</label><input type="text" id="qvf-who"></div>
+    <div class="fr"><label class="lbl">Horário</label><input type="time" id="qvf-time"></div>
+  </div>
+  <div class="fr"><label class="lbl">Observação</label><input type="text" id="qvf-note"></div>
+  <button class="btn btn-p btn-full" onclick="saveQuickVisit()">Salvar</button>
+ </div>
+</div>
+
+<!-- NOTIFICATION REVIEW MODAL -->
+<div id="mo-notif-review" class="mo center" style="display:none" onclick="cmo(event,'mo-notif-review')">
+ <div class="modal center">
+  <div class="mo-hd"><h2>Revisar Alteração</h2><button class="x-btn" onclick="closeModal('mo-notif-review')">✕</button></div>
+  <input type="hidden" id="rev-id">
+  <div id="rev-content"></div>
+  <div class="ia" style="margin-top:12px">
+    <button class="btn btn-s btn-full" onclick="approveChange()">✅ Aprovar</button>
+    <button class="btn btn-d btn-full" onclick="rejectChange()">❌ Rejeitar</button>
+  </div>
+ </div>
+</div>
+
+<!-- PUBLIC NEW ADDRESS MODAL -->
+<div id="mo-pub-addr" class="mo" style="display:none" onclick="cmo(event,'mo-pub-addr')">
+ <div class="modal">
+  <div class="mo-hd"><h2>Novo Endereço</h2><button class="x-btn" onclick="closeModal('mo-pub-addr')">✕</button></div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:11px">Este endereço será enviado para aprovação do administrador.</p>
+  <div class="fr"><label class="lbl">Seu nome</label><input type="text" id="pub-submitter" placeholder="Seu nome"></div>
+  <div class="fr"><label class="lbl">Nome / Referência *</label><input type="text" id="pub-f-name"></div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Rua</label><input type="text" id="pub-f-street"></div>
+    <div class="fr"><label class="lbl">Número</label><input type="text" id="pub-f-number"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Bairro</label><input type="text" id="pub-f-hood"></div>
+    <div class="fr"><label class="lbl">Cidade</label><input type="text" id="pub-f-city"></div>
+  </div>
+  <div class="fg2">
+    <div class="fr"><label class="lbl">Latitude</label><input type="number" id="pub-f-lat" step="any"></div>
+    <div class="fr"><label class="lbl">Longitude</label><input type="number" id="pub-f-lng" step="any"></div>
+  </div>
+  <button class="btn btn-o btn-sm" onclick="getPubGeo()" style="margin-bottom:10px">📍 Minha localização</button>
+  <div class="fr"><label class="lbl">Observações</label><textarea id="pub-f-notes" style="min-height:55px"></textarea></div>
+  <button class="btn btn-p btn-full" onclick="submitPubNewAddr()">📤 Enviar para aprovação</button>
+ </div>
+</div>
+<script>
+// =============================================
+// SUPABASE CONFIG
+// =============================================
+const SUPA_URL = 'https://xpdazbhtxhmqdysnetid.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwZGF6Ymh0eGhtcWR5c25ldGlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMzgyMzQsImV4cCI6MjA5NTgxNDIzNH0.z3eWgM8wlYWFtgSlXcPLq2o0Huo5nfsy8AY4ulHXSGg';
+
+// Compatibilidade com UMD bundle do Supabase
+const createClient = (window.supabase && window.supabase.createClient)
+  ? window.supabase.createClient
+  : supabase.createClient;
+const sb = createClient(SUPA_URL, SUPA_KEY);
+
+// Detecta se está rodando via file:// (causa "failed to fetch")
+if (window.location.protocol === 'file:') {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    const err = document.getElementById('login-err');
+    err.style.display = 'block';
+    err.innerHTML = `⚠️ <b>Arquivo aberto diretamente (file://)</b><br><br>
+      O sistema precisa ser aberto via servidor HTTP para funcionar.<br><br>
+      <b>Opção mais fácil — VS Code:</b><br>
+      1. Instale a extensão "Live Server"<br>
+      2. Clique com botão direito no arquivo → "Open with Live Server"<br><br>
+      <b>Ou pelo terminal:</b><br>
+      <code>npx serve .</code> e acesse http://localhost:3000<br><br>
+      <b>No celular:</b> hospede no GitHub Pages ou Netlify (gratuito).`;
+    err.style.fontSize = '12px';
+    err.style.lineHeight = '1.6';
+  });
+}
+
+// =============================================
+// STATE
+// =============================================
+let currentUser = null;
+let userRole = 'elder';
+let cache = { addresses:[], groups:[], cities:[], hoods:[], events:[], censusStreets:[], censusSessions:[], shareLinks:[], pendingChanges:[], photos:{}, people:{}, visits:{}, eventInvites:[] };
+let mainMap = null;
+let pubMap = null;
+let pubToken = null;
+let pubAddresses = [];
+let pubPendingChanges = [];
+let editPhotosLocal = [];
+let editVisitsLocal = [];
+let pCount = 0;
+let shSelectedIds = new Set();
+
+// =============================================
+// HELPERS
+// =============================================
+const STATUS_LABEL = {pending:'Não visitado',revisit:'Revisita',studying:'Estudando a Bíblia',unavailable:'Não disponível',no_interest:'Não quer receber',removed:'Removido',inactive:'Inativo',publisher:'Publicador',baptized:'Batizado ativo'};
+const STATUS_ICON = {pending:'⏳',revisit:'🔄',studying:'📖',unavailable:'❌',no_interest:'🚫',removed:'🗑',inactive:'💤',publisher:'📣',baptized:'⭐'};
+const VISIT_LABEL = {attended:'Atendeu',home_busy:'Em casa / ocupado',not_home:'Não estava',no_interest:'Não quis atender'};
+function stag(s){const m={pending:'t-gray',revisit:'t-amber',studying:'t-green',unavailable:'t-red',no_interest:'t-red',removed:'t-red',inactive:'t-gray',publisher:'t-blue',baptized:'t-purple'};return m[s]||'t-gray';}
+function fdate(d){if(!d)return'—';try{const[y,m,dy]=(d.includes('T')?d.slice(0,10):d).split('-');return`${dy}/${m}/${y}`;}catch{return d;}}
+function daysSince(d){if(!d)return 9999;return Math.floor((Date.now()-new Date(d))/86400000);}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+function setF(id,v){const e=document.getElementById(id);if(e)e.value=v||'';}
+function getF(id){return(document.getElementById(id)||{}).value||'';}
+function loading(show,msg='Carregando...'){const l=document.getElementById('loading');const m=document.getElementById('loading-msg');if(l){l.style.display=show?'flex':'none';}if(m)m.textContent=msg;}
+function closeModal(id){const e=document.getElementById(id);if(e)e.style.display='none';}
+function cmo(e,id){if(e.target.id===id)closeModal(id);}
+
+// =============================================
+// THEME
+// =============================================
+function toggleTheme(){const d=document.documentElement;const dark=d.getAttribute('data-theme')==='dark';d.setAttribute('data-theme',dark?'light':'dark');document.getElementById('theme-btn').textContent=dark?'🌙':'☀️';localStorage.setItem('tb_theme',dark?'light':'dark');}
+function loadTheme(){const t=localStorage.getItem('tb_theme')||'light';document.documentElement.setAttribute('data-theme',t);const btn=document.getElementById('theme-btn');if(btn)btn.textContent=t==='dark'?'☀️':'🌙';}
+
+// =============================================
+// ROUTING — detect public link
+// =============================================
+async function init() {
+  loading(true, 'Iniciando...');
+  loadTheme();
+  const path = window.location.pathname;
+  const hash = window.location.hash;
+  // Check for public token in URL: #/t/TOKEN or ?t=TOKEN
+  const tokenMatch = (path + hash).match(/[#/]t[/=]([A-Z0-9]{8})/i) || hash.match(/t=([A-Z0-9]{6,12})/i);
+  if (tokenMatch) {
+    pubToken = tokenMatch[1].toUpperCase();
+    await loadPublicView(pubToken);
+    return;
+  }
+  // Check auth
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadUserProfile();
+    await loadAllData();
+    showApp();
+  } else {
+    loading(false);
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+}
+
+// =============================================
+// AUTH
+// =============================================
+async function doLogin() {
+  const email = getF('login-email');
+  const pass = getF('login-pass');
+  const err = document.getElementById('login-err');
+  err.style.display = 'none';
+  if (!email || !pass) { err.textContent = 'Preencha email e senha.'; err.style.display='block'; return; }
+  loading(true, 'Entrando...');
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) {
+      loading(false);
+      // Traduz erros comuns
+      let msg = error.message;
+      if (msg.includes('Invalid login')) msg = 'Email ou senha incorretos.';
+      else if (msg.includes('Email not confirmed')) msg = 'Email não confirmado. Verifique sua caixa de entrada.';
+      else if (msg.includes('fetch')) msg = 'Erro de conexão. Verifique sua internet e abra o arquivo em um servidor (não direto pelo explorador de arquivos).';
+      err.textContent = msg;
+      err.style.display = 'block';
+      return;
+    }
+    currentUser = data.user;
+    await loadUserProfile();
+    await loadAllData();
+    showApp();
+  } catch(e) {
+    loading(false);
+    err.textContent = 'Erro de conexão: ' + e.message + '. Certifique-se de abrir o arquivo via servidor HTTP, não como file://.';
+    err.style.display = 'block';
+  }
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('main-fab').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+async function loadUserProfile() {
+  const { data } = await sb.from('user_profiles').select('*').eq('id', currentUser.id).single();
+  if (data) {
+    userRole = data.role;
+    const chip = document.getElementById('role-chip');
+    if (chip) chip.textContent = userRole === 'admin' ? '👑 Admin' : '📋 Ancião';
+  }
+}
+
+function showApp() {
+  loading(false);
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('main-fab').style.display = 'flex';
+  if (userRole === 'admin') {
+    const el = document.getElementById('admin-only-data');
+    if (el) el.style.display = 'block';
+    const delBtn = document.getElementById('del-btn');
+  }
+  renderHome();
+  subscribeRealtime();
+  loadPendingCount();
+}
+
+// =============================================
+// LOAD ALL DATA
+// =============================================
+async function loadAllData() {
+  loading(true, 'Carregando dados...');
+  try {
+    const [addr, grp, cit, hd, ev, cs, sl, pc] = await Promise.all([
+      sb.from('addresses').select('*').order('name'),
+      sb.from('groups').select('*').order('name'),
+      sb.from('cities').select('*').order('name'),
+      sb.from('neighborhoods').select('*').order('name'),
+      sb.from('events').select('*').order('name'),
+      sb.from('census_streets').select('*').order('street_name'),
+      sb.from('share_links').select('*').order('created_at', {ascending:false}),
+      sb.from('pending_changes').select('*').eq('status','pending').order('created_at',{ascending:false}),
+    ]);
+    cache.addresses = addr.data || [];
+    cache.groups = grp.data || [];
+    cache.cities = cit.data || [];
+    cache.hoods = hd.data || [];
+    cache.events = ev.data || [];
+    cache.censusStreets = cs.data || [];
+    cache.shareLinks = sl.data || [];
+    cache.pendingChanges = pc.data || [];
+    // Load people and visits for all addresses
+    if (cache.addresses.length > 0) {
+      const ids = cache.addresses.map(a => a.id);
+      const [ppl, vis, pho, invites, sessions] = await Promise.all([
+        sb.from('people').select('*').in('address_id', ids),
+        sb.from('visits').select('*').in('address_id', ids).order('visit_date'),
+        sb.from('photos').select('id,address_id,data').in('address_id', ids),
+        sb.from('event_invites').select('*'),
+        sb.from('census_sessions').select('*').order('started_at'),
+      ]);
+      cache.people = {};
+      (ppl.data||[]).forEach(p => { if(!cache.people[p.address_id]) cache.people[p.address_id]=[]; cache.people[p.address_id].push(p); });
+      cache.visits = {};
+      (vis.data||[]).forEach(v => { if(!cache.visits[v.address_id]) cache.visits[v.address_id]=[]; cache.visits[v.address_id].push(v); });
+      cache.photos = {};
+      (pho.data||[]).forEach(p => { if(!cache.photos[p.address_id]) cache.photos[p.address_id]=[]; cache.photos[p.address_id].push(p.data); });
+      cache.eventInvites = invites.data || [];
+      cache.censusSessions = sessions.data || [];
+    }
+  } catch(e) { toast('Erro ao carregar dados: ' + e.message); }
+  loading(false);
+}
+
+// =============================================
+// REALTIME
+// =============================================
+function subscribeRealtime() {
+  sb.channel('db-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'addresses' }, payload => {
+      handleRealtimeChange('addresses', payload);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'visits' }, payload => {
+      handleRealtimeChange('visits', payload);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_changes' }, payload => {
+      if (payload.new && payload.new.status === 'pending') {
+        cache.pendingChanges.unshift(payload.new);
+        loadPendingCount();
+        toast('🔔 Nova alteração pendente!');
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, () => reloadPeople())
+    .subscribe(status => {
+      const dot = document.getElementById('sync-dot');
+      if (dot) { dot.className = 'sync-dot' + (status==='SUBSCRIBED'?'':' offline'); }
+    });
+}
+
+async function handleRealtimeChange(table, payload) {
+  if (table === 'addresses') {
+    if (payload.eventType === 'INSERT') cache.addresses.push(payload.new);
+    else if (payload.eventType === 'UPDATE') { const i=cache.addresses.findIndex(a=>a.id===payload.new.id); if(i>=0) cache.addresses[i]=payload.new; }
+    else if (payload.eventType === 'DELETE') cache.addresses=cache.addresses.filter(a=>a.id!==payload.old.id);
+    renderAddresses(); renderHome();
+  }
+  if (table === 'visits') {
+    const v = payload.new || payload.old;
+    if (!v) return;
+    if (!cache.visits[v.address_id]) cache.visits[v.address_id] = [];
+    if (payload.eventType === 'INSERT') cache.visits[v.address_id].push(payload.new);
+    else if (payload.eventType === 'UPDATE') { const arr=cache.visits[v.address_id]; const i=arr.findIndex(x=>x.id===payload.new.id); if(i>=0) arr[i]=payload.new; }
+    renderHome();
+  }
+}
+
+async function reloadPeople() {
+  if (cache.addresses.length === 0) return;
+  const ids = cache.addresses.map(a=>a.id);
+  const { data } = await sb.from('people').select('*').in('address_id', ids);
+  cache.people = {};
+  (data||[]).forEach(p => { if(!cache.people[p.address_id]) cache.people[p.address_id]=[]; cache.people[p.address_id].push(p); });
+}
+
+async function loadPendingCount() {
+  const { count } = await sb.from('pending_changes').select('*', {count:'exact',head:true}).eq('status','pending');
+  const badge = document.getElementById('notif-badge');
+  if (badge) { badge.textContent = count||0; badge.style.display = count>0?'flex':'none'; }
+}
+
+// =============================================
+// NAVIGATION
+// =============================================
+function showPage(id, btn) {
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pg-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id==='home') renderHome();
+  if (id==='addresses') renderAddresses();
+  if (id==='map') renderMainMap();
+  if (id==='groups') renderGroups();
+  if (id==='census') renderCensus();
+  if (id==='events') renderEvents();
+  if (id==='share') renderSharePage();
+  if (id==='notif') renderNotifications();
+}
+
+// =============================================
+// HOME
+// =============================================
+function renderHome() {
+  const total = cache.addresses.length;
+  const studying = cache.addresses.filter(a=>a.status==='studying').length;
+  const revisit = cache.addresses.filter(a=>a.status==='revisit').length;
+  const ppl = Object.values(cache.people).flat().length;
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat"><div class="stat-n">${total}</div><div class="stat-l">Endereços</div></div>
+    <div class="stat"><div class="stat-n">${ppl}</div><div class="stat-l">Pessoas</div></div>
+    <div class="stat"><div class="stat-n">${studying}</div><div class="stat-l">Estudando</div></div>
+    <div class="stat"><div class="stat-n">${revisit}</div><div class="stat-l">Revisitas</div></div>`;
+  // Suggestions: groups by oldest last visit
+  const sugEl = document.getElementById('sug-list');
+  if (!sugEl) return;
+  const gscores = cache.groups.map(g => {
+    const addrs = cache.addresses.filter(a=>a.group_id===g.id);
+    let lastTs = 0;
+    addrs.forEach(a => { (cache.visits[a.id]||[]).forEach(v=>{ const t=new Date(v.visit_date).getTime(); if(t>lastTs) lastTs=t; }); });
+    const days = lastTs>0 ? Math.floor((Date.now()-lastTs)/86400000) : 9999;
+    return {g, days, lastDate: lastTs>0?new Date(lastTs).toISOString().slice(0,10):null};
+  }).sort((a,b)=>b.days-a.days);
+  sugEl.innerHTML = gscores.slice(0,5).map(({g,days,lastDate}) => `
+    <div class="sug" onclick="filterByGroup('${g.id}')">
+      <div class="sug-ico">${g.icon}</div>
+      <div class="sug-info">
+        <div class="sug-name">${g.name}</div>
+        <div class="sug-days">${days>=9999?'Nunca trabalhado':days===0?'Trabalhado hoje':'Último trabalho: '+days+' dia'+(days!==1?'s':'')+' atrás'+(lastDate?' ('+fdate(lastDate)+')':'')}</div>
+      </div>
+    </div>`).join('') || '<p style="font-size:12px;color:var(--muted)">Crie grupos para ver sugestões.</p>';
+  // Census summary
+  const csEl = document.getElementById('census-summary');
+  if (csEl) {
+    const total_s = cache.censusStreets.length;
+    const done_s = cache.censusStreets.filter(s=>s.status==='done').length;
+    const prog_s = cache.censusStreets.filter(s=>s.status==='in_progress').length;
+    const pct = total_s>0?Math.round(done_s/total_s*100):0;
+    csEl.innerHTML = total_s===0 ? '<p style="font-size:12px;color:var(--muted)">Nenhuma rua cadastrada para senso.</p>' :
+      `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span><b>${done_s}</b>/${total_s} ruas sensadas</span><span style="font-weight:700;color:var(--p600)">${pct}%</span></div>
+      <div style="background:var(--border);border-radius:4px;height:8px;margin-bottom:8px"><div style="background:var(--p500);border-radius:4px;height:8px;width:${pct}%;transition:.5s"></div></div>
+      <div style="font-size:11px;color:var(--muted)">${prog_s} em progresso · ${total_s-done_s-prog_s} pendentes</div>`;
+  }
+  // Incomplete
+  const incEl = document.getElementById('incomplete-list');
+  if (incEl) {
+    const incomplete = cache.addresses.filter(a=>!a.group_id||(!a.lat&&!a.street)||!(cache.visits[a.id]&&cache.visits[a.id].length>0));
+    incEl.innerHTML = incomplete.length===0 ? '<p style="font-size:12px;color:var(--success)">✅ Todos completos!</p>' :
+      incomplete.slice(0,5).map(a=>`<div class="dr" style="cursor:pointer" onclick="showDetail('${a.id}')">
+        <div style="flex:1"><span style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</span><span style="font-size:10px;color:var(--muted);margin-left:6px">${[!a.group_id?'sem grupo':null,(!a.lat&&!a.street)?'sem coord':null,!(cache.visits[a.id]&&cache.visits[a.id].length>0)?'sem visita':null].filter(Boolean).join(' · ')}</span></div>
+      </div>`).join('');
+  }
+  // Nationality
+  const natEl = document.getElementById('nat-chart');
+  if (natEl) {
+    const natMap = {};
+    Object.values(cache.people).flat().forEach(p=>{ if(p.nationality) natMap[p.nationality]=(natMap[p.nationality]||0)+1; });
+    const entries = Object.entries(natMap).sort((a,b)=>b[1]-a[1]);
+    if (entries.length===0) { natEl.innerHTML='<p style="font-size:12px;color:var(--muted)">Sem dados.</p>'; return; }
+    const mx = entries[0][1];
+    natEl.innerHTML = entries.map(([n,c])=>`<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span style="font-weight:600">${n}</span><span style="color:var(--muted)">${c}</span></div><div style="background:var(--border);border-radius:4px;height:6px"><div style="background:var(--p500);border-radius:4px;height:6px;width:${Math.round(c/mx*100)}%"></div></div></div>`).join('');
+  }
+}
+
+// =============================================
+// ADDRESSES
+// =============================================
+let curFilter = 'all';
+function setFilter(el,f){curFilter=f;document.querySelectorAll('.fc').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderAddresses();}
+function filterByGroup(gid){
+  showPage('addresses', document.querySelector('.nb[data-pg="addresses"]'));
+  curFilter='all'; document.querySelectorAll('.fc').forEach(c=>c.classList.remove('active')); document.querySelector('[data-f=all]').classList.add('active');
+  setF('srch-input','');
+  renderAddrList(cache.addresses.filter(a=>a.group_id===gid));
+}
+function renderAddresses() {
+  const q = (getF('srch-input')).toLowerCase();
+  let list = cache.addresses.filter(a => {
+    const ppl = (cache.people[a.id]||[]).map(p=>p.nationality+' '+p.name).join(' ');
+    const match = [a.name,a.street,a.neighborhood,a.city,a.code,ppl].filter(Boolean).join(' ').toLowerCase().includes(q);
+    if (!match) return false;
+    if (curFilter==='all') return true;
+    if (curFilter==='nogroup') return !a.group_id;
+    if (curFilter==='novisit') return !(cache.visits[a.id]&&cache.visits[a.id].length>0);
+    return a.status===curFilter;
+  });
+  renderAddrList(list);
+}
+function renderAddrList(list) {
+  const c = document.getElementById('addr-list'); if (!c) return;
+  if (list.length===0) { c.innerHTML=`<div style="text-align:center;padding:28px;color:var(--muted)">📍 ${cache.addresses.length===0?'Clique em + para adicionar o primeiro endereço':'Nenhum resultado'}</div>`; return; }
+  c.innerHTML = list.map(a => {
+    const g = cache.groups.find(x=>x.id===a.group_id);
+    const pct = (cache.people[a.id]||[]).length;
+    const visits = cache.visits[a.id]||[];
+    const lastV = visits.length>0 ? visits[visits.length-1].visit_date : null;
+    return `<div class="ac" onclick="showDetail('${a.id}')">
+      <div class="ac-hd">
+        <div class="ac-ico">${g?g.icon:'📍'}</div>
+        <div class="ac-info">
+          <div class="ac-name">${a.name||'Sem nome'}${!a.group_id?'<span class="warn-badge" style="margin-left:5px">sem grupo</span>':''}</div>
+          <div class="ac-street">${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'Sem endereço'}</div>
+          <div class="ac-code">#${a.code||'—'}</div>
+        </div>
+        <div style="font-size:17px">${STATUS_ICON[a.status]||'⏳'}</div>
+      </div>
+      <div class="ac-tags">
+        <span class="tag ${stag(a.status)}">${STATUS_LABEL[a.status]||a.status}</span>
+        ${pct>0?`<span class="tag t-blue">👥 ${pct}</span>`:''}
+        ${g?`<span class="tag t-purple">${g.name}</span>`:''}
+        ${lastV?`<span class="tag t-gray">📅 ${fdate(lastV)}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =============================================
+// DETAIL
+// =============================================
+function showDetail(id) {
+  const a = cache.addresses.find(x=>x.id===id); if (!a) return;
+  const g = cache.groups.find(x=>x.id===a.group_id);
+  const ppl = cache.people[id]||[];
+  const visits = cache.visits[id]||[];
+  const photos = cache.photos[id]||[];
+  const evLinks = cache.eventInvites.filter(e=>e.address_id===id).map(e=>cache.events.find(ev=>ev.id===e.event_id)).filter(Boolean);
+  const pplHtml = ppl.length>0 ? ppl.map(p=>`<div class="pc"><div class="pa">${(p.name||'?')[0].toUpperCase()}</div><div><div style="font-weight:700;font-size:12px">${p.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${[p.nationality,p.sex==='M'?'Masculino':p.sex==='F'?'Feminino':'',p.phone].filter(Boolean).join(' · ')}</div></div></div>`).join('') : '<p style="font-size:12px;color:var(--muted)">Nenhuma pessoa.</p>';
+  const visHtml = visits.length>0 ? [...visits].reverse().map(v=>`<div class="vl"><div class="vl-hd"><span>${fdate(v.visit_date)} ${v.visit_time?v.visit_time.slice(0,5):''}</span><span class="tag ${v.result==='attended'?'t-green':v.result==='not_home'?'t-amber':'t-gray'}">${VISIT_LABEL[v.result]||v.result}</span></div>${v.who_answered?`<div style="font-size:11px;color:var(--muted)">Atendeu: ${v.who_answered}</div>`:''}${v.note?`<div style="font-size:11px;color:var(--muted)">${v.note}</div>`:''}</div>`).join('') : '<p style="font-size:12px;color:var(--muted)">Sem visitas.</p>';
+  const photoHtml = photos.length>0 ? `<div class="ph-grid">${photos.map(p=>`<div class="ph-thumb"><img src="${p}" onclick="window.open('${p}','_blank')"></div>`).join('')}</div>` : '';
+  document.getElementById('det-title').textContent = a.name||'Endereço';
+  document.getElementById('det-content').innerHTML = `
+    <div class="dr"><span class="dl">Código</span><span class="dv" style="font-family:monospace;font-weight:700">#${a.code||'—'}</span></div>
+    <div class="dr"><span class="dl">Endereço</span><span class="dv">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</span></div>
+    <div class="dr"><span class="dl">Bairro / Cidade</span><span class="dv">${[a.neighborhood,a.city].filter(Boolean).join(', ')||'—'}</span></div>
+    <div class="dr"><span class="dl">Complemento</span><span class="dv">${a.complement||'—'}</span></div>
+    <div class="dr"><span class="dl">Status</span><span class="dv">${STATUS_ICON[a.status]} ${STATUS_LABEL[a.status]||a.status}</span></div>
+    <div class="dr"><span class="dl">Grupo</span><span class="dv">${g?g.icon+' '+g.name:'—'}</span></div>
+    <div class="dr"><span class="dl">Melhor horário</span><span class="dv">${a.best_time||'—'}</span></div>
+    <div class="dr"><span class="dl">Última publicação</span><span class="dv">${a.last_pub||'—'}</span></div>
+    ${evLinks.length>0?`<div class="dr"><span class="dl">Eventos</span><span class="dv">${evLinks.map(e=>`<span class="tag t-purple">✉️ ${e.name}</span>`).join(' ')}</span></div>`:''}
+    ${a.notes?`<div class="dr"><span class="dl">Observações</span><span class="dv">${a.notes}</span></div>`:''}
+    <div class="sh">👥 Pessoas</div>${pplHtml}
+    <div class="sh">📅 Visitas (${visits.length})</div>${visHtml}
+    ${photos.length>0?`<div class="sh">📸 Fotos</div>${photoHtml}`:''}`;
+  const mapBtn = document.getElementById('det-map-btn');
+  if (a.lat && a.lng) mapBtn.onclick = ()=>window.open(`https://www.google.com/maps?q=${a.lat},${a.lng}`,'_blank');
+  else if (a.street) { const q=encodeURIComponent([a.street,a.number,a.neighborhood,a.city].filter(Boolean).join(', ')); mapBtn.onclick=()=>window.open(`https://www.google.com/maps/search/?api=1&query=${q}`,'_blank'); }
+  else mapBtn.style.display='none';
+  document.getElementById('det-edit-btn').onclick = ()=>{ closeModal('mo-detail'); showAddressModal(id); };
+  document.getElementById('det-visit-btn').onclick = ()=>{ closeModal('mo-detail'); openQuickVisit(id); };
+  document.getElementById('mo-detail').style.display = 'flex';
+}
+
+// =============================================
+// SAVE ADDRESS
+// =============================================
+function showAddressModal(id) {
+  editPhotosLocal=[]; editVisitsLocal=[]; pCount=0;
+  document.getElementById('ppl-form').innerHTML='';
+  document.getElementById('ph-prev').innerHTML='';
+  document.getElementById('visits-log').innerHTML='';
+  document.getElementById('add-visit-form').style.display='none';
+  ['f-name','f-street','f-number','f-hood','f-city','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps','f-code'].forEach(i=>setF(i,''));
+  setF('f-status','pending'); setF('f-group','');
+  updateGroupSelect('f-group');
+  if (id) {
+    const a = cache.addresses.find(x=>x.id===id); if (!a) return;
+    document.getElementById('mo-addr-title').textContent='Editar Endereço';
+    document.getElementById('del-btn').style.display = userRole==='admin'?'':'none';
+    setF('ei',id); setF('f-name',a.name); setF('f-street',a.street); setF('f-number',a.number);
+    setF('f-hood',a.neighborhood); setF('f-city',a.city); setF('f-comp',a.complement);
+    setF('f-lat',a.lat); setF('f-lng',a.lng); setF('f-notes',a.notes);
+    setF('f-besttime',a.best_time); setF('f-lastpub',a.last_pub); setF('f-code',a.code);
+    setF('f-status',a.status); setF('f-group',a.group_id||'');
+    (cache.people[id]||[]).forEach(p=>addPersonForm(p));
+    editVisitsLocal = [...(cache.visits[id]||[])];
+    renderVisitsForm();
+    editPhotosLocal = [...(cache.photos[id]||[])];
+    renderPhPrev();
+  } else {
+    document.getElementById('mo-addr-title').textContent='Novo Endereço';
+    document.getElementById('del-btn').style.display='none';
+    setF('ei','');
+    setF('vf-date', new Date().toISOString().slice(0,10));
+    setF('vf-time', new Date().toTimeString().slice(0,5));
+  }
+  document.getElementById('mo-addr').style.display='flex';
+}
+
+function addPersonForm(data) {
+  pCount++; const pid='pf'+pCount;
+  const div=document.createElement('div'); div.id=pid;
+  div.style='background:var(--bg);border-radius:9px;padding:10px;margin-bottom:7px';
+  div.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><strong style="font-size:11px;color:var(--p600)">Pessoa ${pCount}</strong><button class="btn btn-d btn-sm" style="padding:3px 8px" onclick="document.getElementById('${pid}').remove()">✕</button></div>
+  <div class="fg2"><div class="fr"><label class="lbl">Nome</label><input type="text" class="pn" value="${data?.name||''}"></div><div class="fr"><label class="lbl">Celular</label><input type="text" class="pp" value="${data?.phone||''}"></div></div>
+  <div class="fg2"><div class="fr"><label class="lbl">Nacionalidade</label><input type="text" class="pna" value="${data?.nationality||''}"></div><div class="fr"><label class="lbl">Sexo</label><select class="psx"><option value="">—</option><option value="M" ${data?.sex==='M'?'selected':''}>Masculino</option><option value="F" ${data?.sex==='F'?'selected':''}>Feminino</option></select></div></div>`;
+  document.getElementById('ppl-form').appendChild(div);
+}
+
+function handlePhotos(e){Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{editPhotosLocal.push(ev.target.result);renderPhPrev();};r.readAsDataURL(f);});}
+function renderPhPrev(){document.getElementById('ph-prev').innerHTML=editPhotosLocal.map((p,i)=>`<div class="ph-thumb"><img src="${p}"><button class="ph-del" onclick="editPhotosLocal.splice(${i},1);renderPhPrev()">✕</button></div>`).join('');}
+function showAddVisitForm(){setF('vf-date',new Date().toISOString().slice(0,10));setF('vf-time',new Date().toTimeString().slice(0,5));document.getElementById('add-visit-form').style.display='block';}
+function addVisitToForm(){
+  const v={id:'local_'+uid(),visit_date:getF('vf-date'),visit_time:getF('vf-time'),result:getF('vf-result'),who_answered:getF('vf-who'),note:getF('vf-note'),is_pending:false};
+  if(!v.visit_date){toast('Selecione a data');return;}
+  editVisitsLocal.push(v); renderVisitsForm(); document.getElementById('add-visit-form').style.display='none';
+}
+function renderVisitsForm(){
+  document.getElementById('visits-log').innerHTML=[...editVisitsLocal].reverse().map((v,ri)=>`
+    <div class="vl"><div class="vl-hd"><span>${fdate(v.visit_date)} ${v.visit_time?v.visit_time.slice(0,5):''}</span>
+    <div style="display:flex;gap:4px;align-items:center"><span class="tag ${v.result==='attended'?'t-green':v.result==='not_home'?'t-amber':'t-gray'}">${VISIT_LABEL[v.result]||v.result}</span>
+    <button class="btn btn-d btn-sm" style="padding:2px 6px;font-size:10px" onclick="editVisitsLocal.splice(${editVisitsLocal.length-1-ri},1);renderVisitsForm()">✕</button></div></div>
+    ${v.who_answered?`<div style="font-size:11px;color:var(--muted)">Atendeu: ${v.who_answered}</div>`:''}${v.note?`<div style="font-size:11px;color:var(--muted)">${v.note}</div>`:''}</div>`).join('');
+}
+
+async function saveAddress() {
+  const nm = getF('f-name').trim(); if (!nm) { toast('Digite um nome'); return; }
+  loading(true, 'Salvando...');
+  try {
+    const id = getF('ei') || null;
+    const addrData = {
+      name:nm, street:getF('f-street'), number:getF('f-number'), neighborhood:getF('f-hood'),
+      city:getF('f-city'), complement:getF('f-comp'), lat:parseFloat(getF('f-lat'))||null,
+      lng:parseFloat(getF('f-lng'))||null, status:getF('f-status'),
+      group_id:getF('f-group')||null, best_time:getF('f-besttime'), last_pub:getF('f-lastpub'),
+      notes:getF('f-notes'), code:getF('f-code')||undefined
+    };
+    let addressId = id;
+    if (id) {
+      const { error } = await sb.from('addresses').update(addrData).eq('id',id);
+      if (error) throw error;
+    } else {
+      const { data, error } = await sb.from('addresses').insert(addrData).select().single();
+      if (error) throw error;
+      addressId = data.id;
+      cache.addresses.push(data);
+    }
+    // Save people
+    await sb.from('people').delete().eq('address_id', addressId);
+    const pplData = [];
+    document.getElementById('ppl-form').querySelectorAll('[id^=pf]').forEach(div=>{
+      const name=div.querySelector('.pn')?.value; const phone=div.querySelector('.pp')?.value;
+      const nat=div.querySelector('.pna')?.value; const sex=div.querySelector('.psx')?.value;
+      if(name||phone) pplData.push({address_id:addressId,name,phone,nationality:nat,sex});
+    });
+    if (pplData.length>0) await sb.from('people').insert(pplData);
+    // Save new visits (only ones with local_ prefix = new)
+    const newVisits = editVisitsLocal.filter(v=>v.id.startsWith('local_'));
+    if (newVisits.length>0) {
+      const vdata = newVisits.map(v=>({address_id:addressId,visit_date:v.visit_date,visit_time:v.visit_time,result:v.result,who_answered:v.who_answered,note:v.note}));
+      await sb.from('visits').insert(vdata);
+    }
+    // Save photos (new ones only - base64)
+    const newPhotos = editPhotosLocal.filter(p=>p.startsWith('data:'));
+    if (newPhotos.length>0) {
+      await sb.from('photos').delete().eq('address_id',addressId);
+      await sb.from('photos').insert(newPhotos.map(d=>({address_id:addressId,data:d})));
+    }
+    await loadAllData();
+    closeModal('mo-addr'); renderAddresses(); renderHome();
+    toast('✅ Salvo!');
+  } catch(e) { toast('Erro: '+e.message); }
+  loading(false);
+}
+
+async function delAddr() {
+  const id = getF('ei'); if (!id || userRole!=='admin') return;
+  if (!confirm('Excluir este endereço?')) return;
+  loading(true,'Excluindo...');
+  await sb.from('addresses').delete().eq('id',id);
+  cache.addresses = cache.addresses.filter(a=>a.id!==id);
+  delete cache.people[id]; delete cache.visits[id]; delete cache.photos[id];
+  loading(false); closeModal('mo-addr'); renderAddresses(); renderHome(); toast('🗑 Removido.');
+}
+
+// =============================================
+// QUICK VISIT
+// =============================================
+function openQuickVisit(id) {
+  setF('qv-id',id);
+  setF('qvf-date',new Date().toISOString().slice(0,10));
+  setF('qvf-time',new Date().toTimeString().slice(0,5));
+  setF('qvf-result','attended'); setF('qvf-who',''); setF('qvf-note','');
+  document.getElementById('mo-qvisit').style.display='flex';
+}
+async function saveQuickVisit() {
+  const id = getF('qv-id');
+  const vdate = getF('qvf-date'); if (!vdate) { toast('Selecione a data'); return; }
+  loading(true,'Salvando visita...');
+  const { error } = await sb.from('visits').insert({address_id:id,visit_date:vdate,visit_time:getF('qvf-time'),result:getF('qvf-result'),who_answered:getF('qvf-who'),note:getF('qvf-note')});
+  if (error) { toast('Erro: '+error.message); loading(false); return; }
+  if (!cache.visits[id]) cache.visits[id]=[];
+  cache.visits[id].push({id:uid(),address_id:id,visit_date:vdate,visit_time:getF('qvf-time'),result:getF('qvf-result'),who_answered:getF('qvf-who'),note:getF('qvf-note')});
+  loading(false); closeModal('mo-qvisit'); renderHome(); toast('📅 Visita registrada!');
+}
+
+// =============================================
+// MAP
+// =============================================
+function renderMainMap() {
+  const gf = getF('map-fg') || 'all';
+  const sf = getF('map-fs') || 'all';
+  const gs = document.getElementById('map-fg');
+  if (gs && gs.options.length<=1) {
+    gs.innerHTML='<option value="all">Todos grupos</option>'+cache.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');
+  }
+  const list = cache.addresses.filter(a=>{
+    const gok = gf==='all'||a.group_id===gf;
+    const sok = sf==='all'||a.status===sf;
+    return gok&&sok&&a.lat&&a.lng;
+  });
+  if (!mainMap) {
+    mainMap = L.map('main-map').setView([-15.78,-47.93],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(mainMap);
+  } else { mainMap.eachLayer(l=>{ if(l instanceof L.Marker) mainMap.removeLayer(l); }); }
+  const bounds = [];
+  list.forEach(a => {
+    const g = cache.groups.find(x=>x.id===a.group_id);
+    const ppl = (cache.people[a.id]||[]).map(p=>`<div class="lp-row">👤 ${p.name||'—'} ${p.nationality?'('+p.nationality+')':''} ${p.phone?'· '+p.phone:''}</div>`).join('');
+    const vis = cache.visits[a.id]||[];
+    const lastV = vis.length>0?fdate(vis[vis.length-1].visit_date):'Nunca';
+    const popup = `<div class="lp-name">${a.name||'Sem nome'} <span style="font-size:10px;font-family:monospace;color:#888">#${a.code||''}</span></div>
+      <div class="lp-row">${STATUS_ICON[a.status]} ${STATUS_LABEL[a.status]||''}</div>
+      <div class="lp-row">📍 ${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'—'}</div>
+      ${g?`<div class="lp-row">🗂 ${g.name}</div>`:''}${ppl}
+      <div class="lp-row">📅 ${lastV}</div>
+      ${a.best_time?`<div class="lp-row">⏰ ${a.best_time}</div>`:''}
+      ${a.notes?`<div class="lp-row">📝 ${a.notes}</div>`:''}
+      <a class="lp-btn" href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank">🗺 Ir até lá</a>`;
+    L.marker([a.lat,a.lng]).addTo(mainMap).bindPopup(popup,{maxWidth:260});
+    bounds.push([a.lat,a.lng]);
+  });
+  if (bounds.length>0) mainMap.fitBounds(bounds,{padding:[28,28]});
+  setTimeout(()=>mainMap.invalidateSize(),150);
+}
+
+// =============================================
+// GROUPS
+// =============================================
+function updateGroupSelect(selId) {
+  const s = document.getElementById(selId); if (!s) return;
+  s.innerHTML='<option value="">Sem grupo</option>'+cache.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');
+}
+function showGroupModal(id){
+  const g = id ? cache.groups.find(x=>x.id===id) : null;
+  setF('g-id', g?.id||''); setF('g-name',g?.name||''); setF('g-leader',g?.leader||'');
+  document.getElementById('g-icon').value=g?.icon||'📍';
+  const cs=document.getElementById('g-city');
+  cs.innerHTML='<option value="">Sem cidade</option>'+cache.cities.map(c=>`<option value="${c.id}" ${g?.city_id===c.id?'selected':''}>${c.name}</option>`).join('');
+  const hs=document.getElementById('g-hood');
+  hs.innerHTML='<option value="">Sem bairro</option>'+cache.hoods.map(h=>`<option value="${h.id}" ${g?.neighborhood_id===h.id?'selected':''}>${h.name}</option>`).join('');
+  document.getElementById('mo-group').style.display='flex';
+}
+async function saveGroup(){
+  const nm=getF('g-name').trim(); if(!nm){toast('Nome obrigatório');return;}
+  const id=getF('g-id');
+  const data={name:nm,icon:getF('g-icon')||'📍',leader:getF('g-leader'),city_id:getF('g-city')||null,neighborhood_id:getF('g-hood')||null};
+  loading(true,'Salvando...');
+  if(id){await sb.from('groups').update(data).eq('id',id);}
+  else{await sb.from('groups').insert(data);}
+  const {data:grps}=await sb.from('groups').select('*').order('name');
+  cache.groups=grps||[]; loading(false); closeModal('mo-group'); renderGroups(); updateGroupSelect('f-group'); toast('✅ Grupo salvo!');
+}
+function showCityModal(){setF('c-name','');document.getElementById('mo-city').style.display='flex';}
+async function saveCity(){
+  const nm=getF('c-name').trim();if(!nm){toast('Nome obrigatório');return;}
+  loading(true);
+  const {data}=await sb.from('cities').insert({name:nm}).select().single();
+  cache.cities.push(data); loading(false); closeModal('mo-city'); renderGroups(); toast('✅ Cidade criada!');
+}
+function showHoodModal(){
+  const cs=document.getElementById('h-city');
+  cs.innerHTML='<option value="">Selecione</option>'+cache.cities.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  setF('h-name',''); document.getElementById('mo-hood').style.display='flex';
+}
+async function saveHood(){
+  const nm=getF('h-name').trim(); const cid=getF('h-city'); if(!nm){toast('Nome obrigatório');return;}
+  loading(true);
+  const {data}=await sb.from('neighborhoods').insert({name:nm,city_id:cid||null}).select().single();
+  cache.hoods.push(data); loading(false); closeModal('mo-hood'); renderGroups(); toast('✅ Bairro criado!');
+}
+function renderGroups(){
+  const c=document.getElementById('groups-tree'); if(!c) return;
+  if(cache.cities.length===0&&cache.groups.length===0){c.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)">Crie cidades e grupos para organizar.</div>';return;}
+  let html='';
+  cache.cities.forEach(city=>{
+    const cityGroups=cache.groups.filter(g=>g.city_id===city.id);
+    const hoodIds=[...new Set(cityGroups.map(g=>g.neighborhood_id).filter(Boolean))];
+    let inner='';
+    hoodIds.forEach(hid=>{
+      const hood=cache.hoods.find(h=>h.id===hid);
+      const hgroups=cityGroups.filter(g=>g.neighborhood_id===hid);
+      if(hood) inner+=`<div class="gt-hood-hd">🏘 ${hood.name}</div>`;
+      inner+=hgroups.map(g=>renderGroupRow(g)).join('');
+    });
+    const noHood=cityGroups.filter(g=>!g.neighborhood_id);
+    inner+=noHood.map(g=>renderGroupRow(g)).join('');
+    html+=`<div class="gt-city"><div class="gt-city-hd"><span>🏙 ${city.name}</span><button class="btn btn-d btn-sm" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:3px 8px" onclick="event.stopPropagation();delCity('${city.id}')">✕</button></div><div>${inner}</div></div>`;
+  });
+  const noCity=cache.groups.filter(g=>!g.city_id);
+  if(noCity.length>0) html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted)">Sem cidade</div><div>${noCity.map(g=>renderGroupRow(g)).join('')}</div></div>`;
+  c.innerHTML=html||'<div style="text-align:center;padding:28px;color:var(--muted)">Nenhum grupo.</div>';
+}
+function renderGroupRow(g){
+  const cnt=cache.addresses.filter(a=>a.group_id===g.id).length;
+  return`<div class="gt-group" onclick="filterByGroup('${g.id}')"><span style="font-size:18px">${g.icon}</span><div style="flex:1"><div style="font-weight:700;font-size:12px">${g.name}</div><div style="font-size:11px;color:var(--muted)">${cnt} endereço${cnt!==1?'s':''}${g.leader?' · '+g.leader:''}</div></div>
+  <button class="btn btn-o btn-sm" style="padding:3px 8px" onclick="event.stopPropagation();showGroupModal('${g.id}')">✏️</button>
+  <button class="btn btn-d btn-sm" style="padding:3px 8px;margin-left:3px" onclick="event.stopPropagation();delGroup('${g.id}')">🗑</button></div>`;
+}
+async function delGroup(id){if(!confirm('Excluir grupo?'))return;await sb.from('groups').delete().eq('id',id);cache.groups=cache.groups.filter(g=>g.id!==id);cache.addresses.forEach(a=>{if(a.group_id===id)a.group_id=null;});renderGroups();}
+async function delCity(id){if(!confirm('Excluir cidade?'))return;await sb.from('cities').delete().eq('id',id);cache.cities=cache.cities.filter(c=>c.id!==id);renderGroups();}
+
+// =============================================
+// CENSUS
+// =============================================
+function populateCensusFilters(){
+  const cf=document.getElementById('cen-city-filter'); if(!cf) return;
+  const prev=cf.value;
+  cf.innerHTML='<option value="all">Todas as cidades</option>'+cache.cities.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  cf.value=prev;
+  const hf=document.getElementById('cen-hood-filter');
+  const phv=hf.value;
+  const cid=cf.value;
+  const hoods=cid==='all'?cache.hoods:cache.hoods.filter(h=>h.city_id===cid);
+  hf.innerHTML='<option value="all">Todos os bairros</option>'+hoods.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
+  hf.value=phv;
+}
+function renderCensus(){
+  populateCensusFilters();
+  const cid=getF('cen-city-filter');
+  const hid=getF('cen-hood-filter');
+  let list=cache.censusStreets.filter(s=>{
+    const cok=cid==='all'||s.city_id===cid;
+    const hok=hid==='all'||s.neighborhood_id===hid;
+    return cok&&hok;
+  });
+  const total=list.length; const done=list.filter(s=>s.status==='done').length; const prog=list.filter(s=>s.status==='in_progress').length;
+  const pct=total>0?Math.round(done/total*100):0;
+  const statEl=document.getElementById('census-stats');
+  statEl.innerHTML=total===0?'':`<div class="card"><div class="card-bd"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span><b>${done}</b>/${total} concluídas</span><span style="font-weight:700;color:var(--p600)">${pct}%</span></div><div style="background:var(--border);border-radius:4px;height:8px"><div style="background:var(--p500);border-radius:4px;height:8px;width:${pct}%"></div></div><div style="font-size:11px;color:var(--muted);margin-top:5px">${prog} em progresso · ${total-done-prog} pendentes</div></div></div>`;
+  // Group by city/hood
+  const cl=document.getElementById('census-list'); if(!cl) return;
+  if(list.length===0){cl.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)">Nenhuma rua cadastrada.</div>';return;}
+  // Group streets by city then hood
+  const byCityHood={};
+  list.forEach(s=>{
+    const city=cache.cities.find(c=>c.id===s.city_id);
+    const hood=cache.hoods.find(h=>h.id===s.neighborhood_id);
+    const ck=(city?.name||'Sem cidade');
+    const hk=(hood?.name||'Sem bairro');
+    if(!byCityHood[ck]) byCityHood[ck]={};
+    if(!byCityHood[ck][hk]) byCityHood[ck][hk]=[];
+    byCityHood[ck][hk].push(s);
+  });
+  cl.innerHTML=Object.entries(byCityHood).map(([city,hoods])=>`
+    <div class="gt-city">
+      <div class="gt-city-hd">🏙 ${city}</div>
+      ${Object.entries(hoods).map(([hood,streets])=>`
+        <div class="gt-hood-hd">🏘 ${hood}</div>
+        ${streets.map(s=>{
+          const sess=cache.censusSessions.filter(x=>x.street_id===s.id);
+          const lastSess=sess.length>0?sess[sess.length-1]:null;
+          return`<div class="cen-street" style="padding-left:40px">
+            <div class="cen-status ${s.status==='done'?'cen-done':s.status==='in_progress'?'cen-prog':'cen-pend'}"></div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:13px">${s.street_name}</div>
+              <div style="font-size:11px;color:var(--muted)">${s.status==='done'?'✅ Concluída':s.status==='in_progress'?'🔄 Em progresso':'⏳ Pendente'}${s.last_census_date?' · '+fdate(s.last_census_date):''}</div>
+              ${lastSess&&lastSess.stop_note?`<div style="font-size:11px;color:var(--warn)">📌 Parou: ${lastSess.stop_note}</div>`:''}
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-p btn-sm" onclick="openCensusSession('${s.id}')">📋</button>
+              <button class="btn btn-o btn-sm" onclick="showCensusStreetModal('${s.id}')">✏️</button>
+            </div>
+          </div>`;
+        }).join('')}`).join('')}
+    </div>`).join('');
+}
+function showCensusStreetModal(id){
+  const s=id?cache.censusStreets.find(x=>x.id===id):null;
+  setF('cen-id',s?.id||''); setF('cen-street',s?.street_name||''); setF('cen-notes',s?.notes||'');
+  const cc=document.getElementById('cen-city');
+  cc.innerHTML='<option value="">Selecione</option>'+cache.cities.map(c=>`<option value="${c.id}" ${s?.city_id===c.id?'selected':''}>${c.name}</option>`).join('');
+  const ch=document.getElementById('cen-hood');
+  ch.innerHTML='<option value="">Selecione</option>'+cache.hoods.map(h=>`<option value="${h.id}" ${s?.neighborhood_id===h.id?'selected':''}>${h.name}</option>`).join('');
+  const cg=document.getElementById('cen-group');
+  cg.innerHTML='<option value="">Sem grupo</option>'+cache.groups.map(g=>`<option value="${g.id}" ${s?.group_id===g.id?'selected':''}>${g.name}</option>`).join('');
+  document.getElementById('mo-cen').style.display='flex';
+}
+async function saveCensusStreet(){
+  const nm=getF('cen-street').trim(); if(!nm){toast('Nome obrigatório');return;}
+  const id=getF('cen-id');
+  const data={street_name:nm,city_id:getF('cen-city')||null,neighborhood_id:getF('cen-hood')||null,group_id:getF('cen-group')||null,notes:getF('cen-notes')};
+  loading(true);
+  if(id){await sb.from('census_streets').update(data).eq('id',id);}
+  else{await sb.from('census_streets').insert(data);}
+  const {data:cs}=await sb.from('census_streets').select('*').order('street_name');
+  cache.censusStreets=cs||[]; loading(false); closeModal('mo-cen'); renderCensus(); toast('✅ Salvo!');
+}
+function openCensusSession(streetId){
+  setF('cens-street-id',streetId); setF('cens-worker',''); setF('cens-stop',''); setF('cens-note','');
+  setF('cens-date',new Date().toISOString().slice(0,10));
+  document.getElementById('cens-status').value='in_progress';
+  const s=cache.censusStreets.find(x=>x.id===streetId);
+  document.getElementById('cen-sess-title').textContent='Senso: '+(s?.street_name||'Rua');
+  document.getElementById('mo-cen-sess').style.display='flex';
+}
+async function saveCensusSession(){
+  const sid=getF('cens-street-id'); if(!sid) return;
+  const status=getF('cens-status');
+  loading(true);
+  await sb.from('census_sessions').insert({street_id:sid,worker_name:getF('cens-worker'),stop_note:getF('cens-stop'),completed:status==='done',started_at:new Date().toISOString()});
+  await sb.from('census_streets').update({status,last_census_date:getF('cens-date'),updated_at:new Date().toISOString()}).eq('id',sid);
+  const {data:cs}=await sb.from('census_streets').select('*');
+  cache.censusStreets=cs||[];
+  const {data:sess}=await sb.from('census_sessions').select('*');
+  cache.censusSessions=sess||[];
+  loading(false); closeModal('mo-cen-sess'); renderCensus(); renderHome(); toast('✅ Senso registrado!');
+}
+
+// =============================================
+// EVENTS
+// =============================================
+function showEventModal(id){
+  const e=id?cache.events.find(x=>x.id===id):null;
+  document.getElementById('mo-ev-title').textContent=e?'Editar Evento':'Novo Evento';
+  setF('ev-id',e?.id||''); setF('ev-name',e?.name||''); setF('ev-date',e?.event_date||''); setF('ev-loc',e?.location||''); setF('ev-notes',e?.notes||'');
+  document.getElementById('mo-event').style.display='flex';
+}
+async function saveEvent(){
+  const nm=getF('ev-name').trim(); if(!nm){toast('Nome obrigatório');return;}
+  const id=getF('ev-id');
+  const data={name:nm,event_date:getF('ev-date')||null,location:getF('ev-loc'),notes:getF('ev-notes')};
+  loading(true);
+  if(id){await sb.from('events').update(data).eq('id',id);}
+  else{await sb.from('events').insert(data);}
+  const {data:evs}=await sb.from('events').select('*').order('name');
+  cache.events=evs||[]; loading(false); closeModal('mo-event'); renderEvents(); toast('✅ Evento salvo!');
+}
+function renderEvents(){
+  const c=document.getElementById('events-list'); if(!c) return;
+  if(cache.events.length===0){c.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)">Nenhum evento.</div>';return;}
+  c.innerHTML=cache.events.map(e=>{
+    const invs=cache.eventInvites.filter(i=>i.event_id===e.id);
+    const total=cache.addresses.length; const inv=invs.length;
+    const pct=total>0?Math.round(inv/total*100):0;
+    return`<div class="ev-card"><div class="ev-hd"><div style="font-weight:800;font-size:14px">${e.name}${e.event_date?' · '+fdate(e.event_date):''}</div><span class="tag t-purple">${pct}%</span></div>
+      <div class="card-bd"><div style="font-size:12px;color:var(--muted)">${inv}/${total} convidados</div>
+      <div class="ev-bar"><div class="ev-fill" style="width:${pct}%"></div></div>
+      ${e.location?`<div style="font-size:11px;color:var(--muted)">📍 ${e.location}</div>`:''}
+      <div class="ia"><button class="btn btn-p btn-sm" onclick="showEventDetail('${e.id}')">Gerenciar convites</button><button class="btn btn-o btn-sm" onclick="showEventModal('${e.id}')">✏️</button><button class="btn btn-d btn-sm" onclick="delEvent('${e.id}')">🗑</button></div></div></div>`;
+  }).join('');
+}
+async function delEvent(id){if(!confirm('Excluir evento?'))return;await sb.from('events').delete().eq('id',id);cache.events=cache.events.filter(e=>e.id!==id);renderEvents();}
+function showEventDetail(eid){
+  const e=cache.events.find(x=>x.id===eid); if(!e) return;
+  const invIds=new Set(cache.eventInvites.filter(i=>i.event_id===eid).map(i=>i.address_id));
+  const total=cache.addresses.length; const inv=invIds.size; const pct=total>0?Math.round(inv/total*100):0;
+  document.getElementById('evdet-title').textContent=e.name;
+  document.getElementById('evdet-content').innerHTML=`
+    <div style="margin-bottom:11px"><div style="font-size:12px;color:var(--muted);margin-bottom:5px">${inv}/${total} convidados (${pct}%)</div>
+    <div class="ev-bar"><div class="ev-fill" style="width:${pct}%"></div></div></div>
+    <div style="max-height:55vh;overflow-y:auto" id="evdet-addr-list">
+      ${cache.addresses.map(a=>`<div class="addr-sel ${invIds.has(a.id)?'selected':''}" id="evsel-${a.id}" onclick="toggleInvite('${eid}','${a.id}',this)">
+        <div class="addr-sel-chk">${invIds.has(a.id)?'✓':''}</div>
+        <div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div><div style="font-size:11px;color:var(--muted)">${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'—'}</div></div>
+      </div>`).join('')}
+    </div>`;
+  document.getElementById('mo-evdet').style.display='flex';
+}
+async function toggleInvite(eid,aid,el){
+  const inv=cache.eventInvites.find(i=>i.event_id===eid&&i.address_id===aid);
+  if(inv){
+    await sb.from('event_invites').delete().eq('id',inv.id);
+    cache.eventInvites=cache.eventInvites.filter(i=>i.id!==inv.id);
+    el.classList.remove('selected'); el.querySelector('.addr-sel-chk').textContent='';
+  } else {
+    const {data}=await sb.from('event_invites').insert({event_id:eid,address_id:aid}).select().single();
+    cache.eventInvites.push(data);
+    el.classList.add('selected'); el.querySelector('.addr-sel-chk').textContent='✓';
+  }
+}
+
+// =============================================
+// SHARE LINKS
+// =============================================
+let shSelectedIds2 = new Set();
+function renderSharePage(){
+  updateShareUI();
+  renderActiveLinks();
+}
+function updateShareUI(){
+  const type=getF('sh-type');
+  const vw=document.getElementById('sh-val-wrap');
+  const vlbl=document.getElementById('sh-val-lbl');
+  const vsel=document.getElementById('sh-val');
+  const manual=document.getElementById('sh-manual');
+  document.getElementById('sh-result').style.display='none';
+  if(type==='custom'){manual.style.display='block';vw.style.display='none';renderShareManual();}
+  else{manual.style.display='none';vw.style.display='';}
+  if(type==='group'){vlbl.textContent='Grupo';vsel.innerHTML=cache.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');}
+  else if(type==='neighborhood'){vlbl.textContent='Bairro';vsel.innerHTML=cache.hoods.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');}
+  else if(type==='city'){vlbl.textContent='Cidade';vsel.innerHTML=cache.cities.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');}
+  else if(type==='status'){vlbl.textContent='Status';vsel.innerHTML=Object.entries(STATUS_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');}
+}
+function renderShareManual(){
+  const c=document.getElementById('sh-manual');
+  c.innerHTML=cache.addresses.map(a=>`<div class="addr-sel ${shSelectedIds2.has(a.id)?'selected':''}" onclick="toggleShSel2('${a.id}',this)"><div class="addr-sel-chk">${shSelectedIds2.has(a.id)?'✓':''}</div><div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div><div style="font-size:11px;color:var(--muted)">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</div></div></div>`).join('');
+}
+function toggleShSel2(id,el){
+  if(shSelectedIds2.has(id)){shSelectedIds2.delete(id);el.classList.remove('selected');el.querySelector('.addr-sel-chk').textContent='';}
+  else{shSelectedIds2.add(id);el.classList.add('selected');el.querySelector('.addr-sel-chk').textContent='✓';}
+}
+async function createShareLink(){
+  const label=getF('sh-label'); const type=getF('sh-type'); const val=getF('sh-val');
+  const addrIds=type==='custom'?[...shSelectedIds2]:null;
+  if(type==='custom'&&(!addrIds||addrIds.length===0)){toast('Selecione ao menos um endereço');return;}
+  loading(true,'Gerando link...');
+  const token=Math.random().toString(36).slice(2,6).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
+  const expires=new Date(Date.now()+15*24*60*60*1000).toISOString();
+  const {data,error}=await sb.from('share_links').insert({token,label:label||'Link sem nome',filter_type:type,filter_value:val||null,address_ids:addrIds,created_by:currentUser?.email,expires_at:expires}).select().single();
+  loading(false);
+  if(error){toast('Erro: '+error.message);return;}
+  cache.shareLinks.unshift(data);
+  const baseUrl=window.location.origin+window.location.pathname;
+  const linkUrl=baseUrl+'#/t/'+token;
+  setF('sh-link-out',linkUrl);
+  document.getElementById('sh-result').style.display='block';
+  renderActiveLinks();
+  toast('🔗 Link criado!');
+}
+function cpyLink(){navigator.clipboard.writeText(getF('sh-link-out')).then(()=>toast('🔗 Copiado!')).catch(()=>toast('Selecione e copie.'));}
+function waShare(){const url=encodeURIComponent('📖 Territórios Bíblicos\n'+getF('sh-link-out'));window.open('https://wa.me/?text='+url,'_blank');}
+function renderActiveLinks(){
+  const c=document.getElementById('active-links'); if(!c) return;
+  const active=cache.shareLinks.filter(l=>l.is_active&&new Date(l.expires_at)>new Date());
+  if(active.length===0){c.innerHTML='<p style="font-size:12px;color:var(--muted)">Nenhum link ativo.</p>';return;}
+  const baseUrl=window.location.origin+window.location.pathname;
+  c.innerHTML=active.map(l=>{
+    const daysLeft=Math.ceil((new Date(l.expires_at)-Date.now())/86400000);
+    const url=baseUrl+'#/t/'+l.token;
+    return`<div style="background:var(--bg);border-radius:9px;padding:10px;margin-bottom:7px">
+      <div style="font-weight:700;font-size:13px">${l.label||l.token}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:5px">${l.filter_type} · expira em ${daysLeft} dia${daysLeft!==1?'s':''}</div>
+      <div style="display:flex;gap:6px">
+        <input type="text" value="${url}" readonly style="font-size:11px;font-family:monospace;flex:1">
+        <button class="btn btn-p btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Copiado!'))">📋</button>
+        <button class="btn btn-sm" style="background:#25d366;color:#fff" onclick="window.open('https://wa.me/?text='+encodeURIComponent('📖 '+decodeURI('${encodeURIComponent(url)}')),'_blank')">📲</button>
+        <button class="btn btn-d btn-sm" onclick="revokeLink('${l.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function revokeLink(id){await sb.from('share_links').update({is_active:false}).eq('id',id);cache.shareLinks=cache.shareLinks.filter(l=>l.id!==id);renderActiveLinks();toast('Link revogado.');}
+
+// =============================================
+// NOTIFICATIONS / PENDING CHANGES
+// =============================================
+async function renderNotifications(){
+  const c=document.getElementById('notif-list'); if(!c) return;
+  const {data}=await sb.from('pending_changes').select('*').order('created_at',{ascending:false}).limit(50);
+  cache.pendingChanges=data||[];
+  if(cache.pendingChanges.length===0){c.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)">Nenhuma notificação.</div>';return;}
+  c.innerHTML=cache.pendingChanges.map(p=>{
+    const a=cache.addresses.find(x=>x.id===p.address_id);
+    return`<div class="notif-item ${p.status}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-weight:700;font-size:13px">${p.type==='new_visit'?'📅 Nova visita':p.type==='new_address'?'📍 Novo endereço':'✏️ Edição'}</div>
+        <div style="font-size:12px;color:var(--muted)">${a?.name||p.payload?.name||'Endereço'} · ${p.submitter_name||'Anônimo'} · ${fdate(p.created_at?.slice(0,10))}</div>
+        ${p.status!=='pending'?`<div style="font-size:11px;color:var(--muted)">${p.status==='approved'?'✅ Aprovado':'❌ Rejeitado'} · ${p.reviewed_by||''}</div>`:''}</div>
+        ${p.status==='pending'&&userRole==='admin'?`<button class="btn btn-p btn-sm" onclick="openReview('${p.id}')">Revisar</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function markAllRead(){toast('Sem ação adicional necessária.');}
+function openReview(id){
+  const p=cache.pendingChanges.find(x=>x.id===id); if(!p) return;
+  setF('rev-id',id);
+  const a=cache.addresses.find(x=>x.id===p.address_id);
+  const pl=p.payload;
+  let html=`<div style="background:var(--bg);border-radius:9px;padding:11px;margin-bottom:11px">`;
+  if(p.type==='new_visit'){html+=`<div style="font-weight:700;margin-bottom:6px">📅 Nova visita para: ${a?.name||'?'}</div><div>Data: ${fdate(pl.visit_date)}</div><div>Resultado: ${VISIT_LABEL[pl.result]||pl.result}</div>${pl.who_answered?`<div>Atendeu: ${pl.who_answered}</div>`:''}<div>Hora: ${pl.visit_time||'—'}</div>${pl.note?`<div>Obs: ${pl.note}</div>`:''}`;}
+  else if(p.type==='new_address'){html+=`<div style="font-weight:700;margin-bottom:6px">📍 Novo endereço</div><div>${pl.name||'Sem nome'}</div><div>${[pl.street,pl.number,pl.neighborhood,pl.city].filter(Boolean).join(', ')||'—'}</div>${pl.notes?`<div>Obs: ${pl.notes}</div>`:''}`;}
+  html+=`</div><div style="font-size:12px;color:var(--muted)">Enviado por: ${p.submitter_name||'Anônimo'} em ${fdate(p.created_at?.slice(0,10))}</div>`;
+  document.getElementById('rev-content').innerHTML=html;
+  document.getElementById('mo-notif-review').style.display='flex';
+}
+async function approveChange(){
+  const id=getF('rev-id'); const p=cache.pendingChanges.find(x=>x.id===id); if(!p) return;
+  loading(true,'Aprovando...');
+  const pl=p.payload;
+  if(p.type==='new_visit'){await sb.from('visits').insert({address_id:p.address_id,...pl,is_pending:false});}
+  else if(p.type==='new_address'){await sb.from('addresses').insert({...pl});}
+  await sb.from('pending_changes').update({status:'approved',reviewed_by:currentUser?.email,reviewed_at:new Date().toISOString()}).eq('id',id);
+  await loadAllData(); loading(false); closeModal('mo-notif-review'); renderNotifications(); loadPendingCount(); toast('✅ Aprovado!');
+}
+async function rejectChange(){
+  const id=getF('rev-id');
+  await sb.from('pending_changes').update({status:'rejected',reviewed_by:currentUser?.email,reviewed_at:new Date().toISOString()}).eq('id',id);
+  const i=cache.pendingChanges.findIndex(x=>x.id===id); if(i>=0) cache.pendingChanges[i].status='rejected';
+  closeModal('mo-notif-review'); renderNotifications(); loadPendingCount(); toast('❌ Rejeitado.');
+}
+
+// =============================================
+// DATA / BACKUP / CSV
+// =============================================
+async function exportBackup(){
+  const all={addresses:cache.addresses,groups:cache.groups,cities:cache.cities,hoods:cache.hoods,events:cache.events,people:cache.people,visits:cache.visits,exportedAt:new Date().toISOString()};
+  const a=document.createElement('a');a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(all,null,2));a.download='territorios_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('⬇ Backup exportado!');
+}
+function importCSV(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const lines=ev.target.result.split('\n').filter(l=>l.trim());
+    if(lines.length<2){toast('CSV vazio ou inválido');return;}
+    const headers=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/['"]/g,''));
+    const rows=lines.slice(1).map(line=>{const vals=line.split(',').map(v=>v.trim().replace(/^"|"$/g,''));const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');return obj;});
+    const preview=document.getElementById('csv-preview');
+    preview.innerHTML=`<div style="background:var(--bg);border-radius:9px;padding:11px;font-size:12px"><b>${rows.length} linhas detectadas.</b> Colunas: ${headers.join(', ')}<br><br><button class="btn btn-p btn-sm" onclick="doImportCSV(${JSON.stringify(rows).replace(/"/g,'&quot;')})">⬆ Importar ${rows.length} endereços</button></div>`;
+  };
+  reader.readAsText(file); e.target.value='';
+}
+async function doImportCSV(rows){
+  loading(true,'Importando CSV...');
+  const toInsert=rows.filter(r=>r.nome||r.name||r.rua||r.street).map(r=>({
+    name:r.nome||r.name||'Sem nome',street:r.rua||r.street||'',number:r.numero||r.number||'',
+    neighborhood:r.bairro||r.neighborhood||'',city:r.cidade||r.city||'',
+    lat:parseFloat(r.lat)||null,lng:parseFloat(r.lng)||null,
+    status:r.status||'pending',notes:r.observacoes||r.notes||''
+  }));
+  if(toInsert.length>0){
+    const chunkSize=50;
+    for(let i=0;i<toInsert.length;i+=chunkSize){await sb.from('addresses').insert(toInsert.slice(i,i+chunkSize));}
+  }
+  await loadAllData(); loading(false); renderAddresses(); toast(`✅ ${toInsert.length} endereços importados!`);
+}
+
+// =============================================
+// PUBLIC VIEW (link compartilhado)
+// =============================================
+async function loadPublicView(token){
+  loading(true,'Carregando território...');
+  document.getElementById('public-screen').style.display='block';
+  // Validate token
+  const {data:link,error}=await sb.from('share_links').select('*').eq('token',token).eq('is_active',true).single();
+  if(error||!link){loading(false);document.getElementById('pub-info').textContent='Link inválido ou expirado.';return;}
+  if(new Date(link.expires_at)<new Date()){loading(false);document.getElementById('pub-info').textContent='Este link expirou.';return;}
+  // Expiry info
+  const daysLeft=Math.ceil((new Date(link.expires_at)-Date.now())/86400000);
+  document.getElementById('pub-expiry').textContent=`Expira em ${daysLeft}d`;
+  // Load addresses based on filter
+  let addrQuery=sb.from('addresses').select('*');
+  if(link.filter_type==='group') addrQuery=addrQuery.eq('group_id',link.filter_value);
+  else if(link.filter_type==='status') addrQuery=addrQuery.eq('status',link.filter_value);
+  else if(link.filter_type==='city'){
+    const {data:cityGroups}=await sb.from('groups').select('id').eq('city_id',link.filter_value);
+    const gids=(cityGroups||[]).map(g=>g.id);
+    if(gids.length>0) addrQuery=addrQuery.in('group_id',gids);
+  } else if(link.filter_type==='neighborhood'){
+    const {data:hoodGroups}=await sb.from('groups').select('id').eq('neighborhood_id',link.filter_value);
+    const gids=(hoodGroups||[]).map(g=>g.id);
+    if(gids.length>0) addrQuery=addrQuery.in('group_id',gids);
+  } else if(link.filter_type==='custom'&&link.address_ids){
+    addrQuery=addrQuery.in('id',link.address_ids);
+  }
+  const {data:addrs}=await addrQuery;
+  pubAddresses=addrs||[];
+  document.getElementById('pub-info').textContent=`${link.label||'Território'} · ${pubAddresses.length} endereços`;
+  // Load people and visits for these addresses
+  let pubPeople={}, pubVisits={};
+  if(pubAddresses.length>0){
+    const ids=pubAddresses.map(a=>a.id);
+    const [{data:ppl},{data:vis}]=await Promise.all([sb.from('people').select('*').in('address_id',ids),sb.from('visits').select('*').in('address_id',ids).order('visit_date')]);
+    (ppl||[]).forEach(p=>{if(!pubPeople[p.address_id])pubPeople[p.address_id]=[];pubPeople[p.address_id].push(p);});
+    (vis||[]).forEach(v=>{if(!pubVisits[v.address_id])pubVisits[v.address_id]=[];pubVisits[v.address_id].push(v);});
+  }
+  loading(false);
+  // Init map
+  pubMap=L.map('pub-map').setView([-15.78,-47.93],5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(pubMap);
+  const bounds=[];
+  pubAddresses.forEach(a=>{
+    if(!a.lat||!a.lng) return;
+    const ppl=(pubPeople[a.id]||[]).map(p=>`<div style="font-size:12px">👤 ${p.name||'—'} ${p.nationality?'('+p.nationality+')':''}</div>`).join('');
+    const vis=pubVisits[a.id]||[];
+    const lastV=vis.length>0?fdate(vis[vis.length-1].visit_date):'Nunca';
+    const popup=`<div class="lp-name">${a.name||'Sem nome'}</div>
+      <div class="lp-row">${STATUS_ICON[a.status]||''} ${STATUS_LABEL[a.status]||''}</div>
+      <div class="lp-row">📍 ${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'—'}</div>
+      ${ppl}<div class="lp-row">📅 Última visita: ${lastV}</div>
+      ${a.best_time?`<div class="lp-row">⏰ ${a.best_time}</div>`:''}
+      ${a.notes?`<div class="lp-row">📝 ${a.notes}</div>`:''}
+      <button class="lp-btn" onclick="openPubVisit('${a.id}')">📅 Registrar visita</button>
+      <a class="lp-btn" href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank" style="margin-top:4px">🗺 Navegar</a>`;
+    L.marker([a.lat,a.lng]).addTo(pubMap).bindPopup(popup,{maxWidth:260});
+    bounds.push([a.lat,a.lng]);
+  });
+  if(bounds.length>0) pubMap.fitBounds(bounds,{padding:[28,28]});
+  // Store token for submissions
+  window._pubToken=token;
+}
+
+function openPubVisit(addrId){
+  pubMap.closePopup();
+  setF('qv-id',addrId); setF('qvf-date',new Date().toISOString().slice(0,10));
+  setF('qvf-time',new Date().toTimeString().slice(0,5)); setF('qvf-result','attended');
+  setF('qvf-who',''); setF('qvf-note','');
+  // Reuse quick visit modal but submit as pending
+  document.getElementById('mo-qvisit').style.display='flex';
+  // Override save button to submit pending
+  document.querySelector('#mo-qvisit .btn-p').onclick=submitPubVisit;
+}
+async function submitPubVisit(){
+  const id=getF('qv-id'); const vdate=getF('qvf-date'); if(!vdate){toast('Selecione a data');return;}
+  const payload={address_id:id,visit_date:vdate,visit_time:getF('qvf-time'),result:getF('qvf-result'),who_answered:getF('qvf-who'),note:getF('qvf-note')};
+  const {error}=await sb.from('pending_changes').insert({share_token:window._pubToken,type:'new_visit',address_id:id,payload,submitter_name:getF('qvf-who')||'Publicador'});
+  if(error){toast('Erro ao enviar: '+error.message);return;}
+  pubPendingChanges.push({type:'new_visit',address_id:id,...payload});
+  closeModal('mo-qvisit');
+  const cnt=document.getElementById('pub-pending-count'); if(cnt) cnt.textContent=`${pubPendingChanges.length} pendente${pubPendingChanges.length!==1?'s':''}`;
+  document.getElementById('pub-save-btn').style.display='inline-flex';
+  toast('📤 Visita enviada para aprovação!');
+}
+function showPubNewAddr(){document.getElementById('mo-pub-addr').style.display='flex';}
+async function submitPubNewAddr(){
+  const nm=getF('pub-f-name').trim(); if(!nm){toast('Nome obrigatório');return;}
+  const payload={name:nm,street:getF('pub-f-street'),number:getF('pub-f-number'),neighborhood:getF('pub-f-hood'),city:getF('pub-f-city'),lat:parseFloat(getF('pub-f-lat'))||null,lng:parseFloat(getF('pub-f-lng'))||null,notes:getF('pub-f-notes')};
+  const {error}=await sb.from('pending_changes').insert({share_token:window._pubToken,type:'new_address',payload,submitter_name:getF('pub-submitter')||'Publicador'});
+  if(error){toast('Erro: '+error.message);return;}
+  closeModal('mo-pub-addr'); toast('📤 Endereço enviado para aprovação!');
+}
+function submitPubChanges(){toast('Atualizações já foram enviadas individualmente.');}
+function getPubGeo(){if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(p=>{setF('pub-f-lat',p.coords.latitude.toFixed(6));setF('pub-f-lng',p.coords.longitude.toFixed(6));toast('📍 Capturado!')},()=>toast('Erro ao obter localização.'));}
+
+// =============================================
+// UTILS
+// =============================================
+function maskCEP(el){el.value=el.value.replace(/\D/g,'').replace(/(\d{5})(\d)/,'$1-$2').slice(0,9);}
+async function fetchCEP(){
+  const cep=getF('f-cep').replace(/\D/g,''); if(cep.length!==8) return;
+  try{const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);const d=await r.json();if(d.erro)return;setF('f-street',d.logradouro);setF('f-hood',d.bairro);setF('f-city',d.localidade);toast('✅ CEP preenchido!');}catch{toast('CEP não encontrado.');}
+}
+function parseGMapsLink(){
+  const v=getF('f-gmaps').trim(); if(!v) return;
+  const patterns=[/@(-?\d+\.\d+),(-?\d+\.\d+)/,/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/,/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/];
+  for(const re of patterns){const m=v.match(re);if(m){setF('f-lat',m[1]);setF('f-lng',m[2]);toast('📍 Coordenadas extraídas!');return;}}
+  toast('Não foi possível extrair coordenadas.');
+}
+function getGeo(){if(!navigator.geolocation){toast('Indisponível');return;}navigator.geolocation.getCurrentPosition(p=>{setF('f-lat',p.coords.latitude.toFixed(6));setF('f-lng',p.coords.longitude.toFixed(6));toast('📍 Capturado!')},()=>toast('Erro ao obter localização.'));}
+
+// =============================================
+// INIT
+// =============================================
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

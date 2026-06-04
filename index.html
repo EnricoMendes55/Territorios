@@ -295,22 +295,48 @@ textarea{resize:vertical;min-height:70px;}
       <div class="fc" data-f="nogroup" onclick="setFilter(this,'nogroup')">Sem grupo</div>
       <div class="fc" data-f="novisit" onclick="setFilter(this,'novisit')">Sem visita</div>
     </div>
+    <div style="display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap">
+      <select id="addr-filter-city" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
+        <option value="">Todas cidades</option>
+      </select>
+      <select id="addr-filter-hood" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
+        <option value="">Todos bairros</option>
+      </select>
+      <select id="addr-filter-group" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
+        <option value="">Todos grupos</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:10px">
+      <select id="addr-sort" onchange="renderAddresses()" style="flex:1;font-size:12px">
+        <option value="name">Ordenar: Nome</option>
+        <option value="city">Ordenar: Cidade</option>
+        <option value="hood">Ordenar: Bairro</option>
+        <option value="group">Ordenar: Grupo</option>
+        <option value="recent">Ordenar: Visita recente</option>
+        <option value="oldest">Ordenar: Há mais tempo sem visita</option>
+      </select>
+    </div>
     <div id="addr-list"></div>
   </div>
 
   <!-- MAP -->
   <div id="pg-map" class="pg" style="padding:10px">
-    <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
-      <select id="map-fg" onchange="renderMainMap()" style="flex:1;min-width:120px"><option value="all">Todos grupos</option></select>
-      <select id="map-fs" onchange="renderMainMap()" style="flex:1;min-width:120px">
+    <div style="display:flex;gap:7px;margin-bottom:7px;flex-wrap:wrap">
+      <select id="map-fg" onchange="renderMainMap()" style="flex:1;min-width:110px;font-size:12px"><option value="all">Todos grupos</option></select>
+      <select id="map-fs" onchange="renderMainMap()" style="flex:1;min-width:110px;font-size:12px">
         <option value="all">Todos status</option>
         <option value="pending">Não visitados</option>
         <option value="revisit">Revisitas</option>
         <option value="studying">Estudando</option>
       </select>
     </div>
+    <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
+      <select id="map-fc" onchange="renderMainMap()" style="flex:1;font-size:12px"><option value="all">Todas cidades</option></select>
+      <select id="map-fh" onchange="renderMainMap()" style="flex:1;font-size:12px"><option value="all">Todos bairros</option></select>
+      <button class="btn btn-p btn-sm" onclick="showAddressModal()" style="white-space:nowrap">+ Endereço</button>
+    </div>
     <div id="main-map"></div>
-    <div style="font-size:11px;color:var(--muted);margin-top:5px">Clique no pin para ver detalhes e navegar.</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:5px">Clique no pin para ver detalhes. O botão azul abre no Google Maps.</div>
   </div>
 
   <!-- GROUPS -->
@@ -324,14 +350,15 @@ textarea{resize:vertical;min-height:70px;}
   </div>
 
   <!-- CENSUS -->
-  <div id="pg-census" class="pg">
-    <div style="display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap">
-      <button class="btn btn-p btn-sm" onclick="showCensusStreetModal()">+ Rua para senso</button>
-      <select id="cen-city-filter" onchange="renderCensus()" style="flex:1"><option value="all">Todas as cidades</option></select>
-      <select id="cen-hood-filter" onchange="renderCensus()" style="flex:1"><option value="all">Todos os bairros</option></select>
+  <div id="pg-census" class="pg" style="padding:10px">
+    <div id="census-city-list"></div>
+    <div id="census-hood-view" style="display:none">
+      <button class="btn btn-o btn-sm" onclick="closeCensusHood()" style="margin-bottom:10px">← Voltar</button>
+      <h3 id="census-hood-title" style="font-size:15px;font-weight:800;color:var(--p700);margin-bottom:8px"></h3>
+      <div id="census-hood-stats" style="margin-bottom:10px"></div>
+      <div id="census-hood-map" style="height:250px;border-radius:var(--radius);overflow:hidden;margin-bottom:10px;display:none"></div>
+      <div id="census-street-list"></div>
     </div>
-    <div id="census-stats" style="margin-bottom:11px"></div>
-    <div id="census-list"></div>
   </div>
 
   <!-- EVENTS -->
@@ -346,6 +373,10 @@ textarea{resize:vertical;min-height:70px;}
       <div class="card-hd"><h3>🔗 Gerar Link para Publicador</h3></div>
       <div class="card-bd">
         <div class="fr"><label class="lbl">Descrição (para identificar)</label><input type="text" id="sh-label" placeholder="Ex: João — Grupo Centro"></div>
+      <div id="sh-smart-search-wrap" style="display:none" class="fr">
+        <label class="lbl">Busca inteligente de endereços</label>
+        <input type="text" id="sh-smart-search" placeholder="Buscar por nome, rua, bairro, cidade..." oninput="renderShareManual()">
+      </div>
         <div class="fg2">
           <div class="fr"><label class="lbl">Tipo de filtro</label>
             <select id="sh-type" onchange="updateShareUI()">
@@ -982,12 +1013,14 @@ function renderHome() {
   if (csEl) {
     const total_s = cache.censusStreets.length;
     const done_s = cache.censusStreets.filter(s=>s.status==='done').length;
-    const prog_s = cache.censusStreets.filter(s=>s.status==='in_progress').length;
-    const pct = total_s>0?Math.round(done_s/total_s*100):0;
-    csEl.innerHTML = total_s===0 ? '<p style="font-size:12px;color:var(--muted)">Nenhuma rua cadastrada para senso.</p>' :
-      `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span><b>${done_s}</b>/${total_s} ruas sensadas</span><span style="font-weight:700;color:var(--p600)">${pct}%</span></div>
-      <div style="background:var(--border);border-radius:4px;height:8px;margin-bottom:8px"><div style="background:var(--p500);border-radius:4px;height:8px;width:${pct}%;transition:.5s"></div></div>
-      <div style="font-size:11px;color:var(--muted)">${prog_s} em progresso · ${total_s-done_s-prog_s} pendentes</div>`;
+    const pct_s = done_s; // raw count shown per city
+    // Group by city
+    const cityTotals = {};
+    CENSUS_CITIES.forEach(c=>cityTotals[c.name]=0);
+    cache.censusStreets.forEach(s=>{if(s.city_name)cityTotals[s.city_name]=(cityTotals[s.city_name]||0)+1;});
+    csEl.innerHTML = done_s===0 ? '<p style="font-size:12px;color:var(--muted)">Nenhuma rua sensada ainda. Abra a aba Senso para começar.</p>' :
+      Object.entries(cityTotals).filter(([,v])=>v>0).map(([city,cnt])=>`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>🏙 ${city}</span><span style="font-weight:700;color:var(--p600)">${cnt} rua${cnt!==1?'s':''} concluída${cnt!==1?'s':''}</span></div>`).join('')+
+      `<div style="margin-top:6px;font-size:11px;color:var(--muted)">Total: ${done_s} rua${done_s!==1?'s':''} concluída${done_s!==1?'s':''}</div>`;
   }
   // Incomplete
   const incEl = document.getElementById('incomplete-list');
@@ -1021,16 +1054,50 @@ function filterByGroup(gid){
   setF('srch-input','');
   renderAddrList(cache.addresses.filter(a=>a.group_id===gid));
 }
+function populateAddrFilters(){
+  const cf=document.getElementById('addr-filter-city');
+  const hf=document.getElementById('addr-filter-hood');
+  const gf=document.getElementById('addr-filter-group');
+  if(!cf||!hf||!gf) return;
+  const cv=cf.value, hv=hf.value, gv=gf.value;
+  // Cities from actual addresses
+  const cities=[...new Set(cache.addresses.map(a=>a.city).filter(Boolean))].sort();
+  cf.innerHTML='<option value="">Todas cidades</option>'+cities.map(c=>`<option value="${c}" ${cv===c?'selected':''}>${c}</option>`).join('');
+  // Hoods filtered by city
+  const hoods=[...new Set(cache.addresses.filter(a=>!cv||a.city===cv).map(a=>a.neighborhood).filter(Boolean))].sort();
+  hf.innerHTML='<option value="">Todos bairros</option>'+hoods.map(h=>`<option value="${h}" ${hv===h?'selected':''}>${h}</option>`).join('');
+  // Groups
+  gf.innerHTML='<option value="">Todos grupos</option>'+cache.groups.map(g=>`<option value="${g.id}" ${gv===g.id?'selected':''}>${g.icon} ${g.name}</option>`).join('');
+}
+
 function renderAddresses() {
+  populateAddrFilters();
   const q = (getF('srch-input')).toLowerCase();
+  const cityF = getF('addr-filter-city');
+  const hoodF = getF('addr-filter-hood');
+  const groupF = getF('addr-filter-group');
+  const sortV = getF('addr-sort') || 'name';
   let list = cache.addresses.filter(a => {
     const ppl = (cache.people[a.id]||[]).map(p=>p.nationality+' '+p.name).join(' ');
     const match = [a.name,a.street,a.neighborhood,a.city,a.code,ppl].filter(Boolean).join(' ').toLowerCase().includes(q);
     if (!match) return false;
+    if (cityF && a.city !== cityF) return false;
+    if (hoodF && a.neighborhood !== hoodF) return false;
+    if (groupF && a.group_id !== groupF) return false;
     if (curFilter==='all') return true;
     if (curFilter==='nogroup') return !a.group_id;
     if (curFilter==='novisit') return !(cache.visits[a.id]&&cache.visits[a.id].length>0);
     return a.status===curFilter;
+  });
+  // Sort
+  list.sort((a,b)=>{
+    if(sortV==='name') return (a.name||'').localeCompare(b.name||'');
+    if(sortV==='city') return (a.city||'').localeCompare(b.city||'');
+    if(sortV==='hood') return (a.neighborhood||'').localeCompare(b.neighborhood||'');
+    if(sortV==='group'){const ga=cache.groups.find(g=>g.id===a.group_id);const gb=cache.groups.find(g=>g.id===b.group_id);return(ga?.name||'').localeCompare(gb?.name||'');}
+    if(sortV==='recent'){const va=cache.visits[a.id]||[];const vb=cache.visits[b.id]||[];const da=va.length>0?va[va.length-1].visit_date:'0';const db=vb.length>0?vb[vb.length-1].visit_date:'0';return db.localeCompare(da);}
+    if(sortV==='oldest'){const va=cache.visits[a.id]||[];const vb=cache.visits[b.id]||[];const da=va.length>0?va[va.length-1].visit_date:'9999';const db=vb.length>0?vb[vb.length-1].visit_date:'9999';return da.localeCompare(db);}
+    return 0;
   });
   renderAddrList(list);
 }
@@ -1055,6 +1122,8 @@ function renderAddrList(list) {
       <div class="ac-tags">
         <span class="tag ${stag(a.status)}">${STATUS_LABEL[a.status]||a.status}</span>
         ${pct>0?`<span class="tag t-blue">👥 ${pct}</span>`:''}
+        ${(cache.people[a.id]||[]).some(p=>p.is_revisit)?`<span class="tag t-amber">🔄 Revisita</span>`:''}
+        ${(cache.people[a.id]||[]).some(p=>p.is_student)?`<span class="tag t-green">📖 Estudante</span>`:''}
         ${g?`<span class="tag t-purple">${g.name}</span>`:''}
         ${lastV?`<span class="tag t-gray">📅 ${fdate(lastV)}</span>`:''}
       </div>
@@ -1072,7 +1141,7 @@ function showDetail(id) {
   const visits = cache.visits[id]||[];
   const photos = cache.photos[id]||[];
   const evLinks = cache.eventInvites.filter(e=>e.address_id===id).map(e=>cache.events.find(ev=>ev.id===e.event_id)).filter(Boolean);
-  const pplHtml = ppl.length>0 ? ppl.map(p=>`<div class="pc"><div class="pa">${(p.name||'?')[0].toUpperCase()}</div><div><div style="font-weight:700;font-size:12px">${p.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${[p.nationality,p.sex==='M'?'Masculino':p.sex==='F'?'Feminino':'',p.phone].filter(Boolean).join(' · ')}</div></div></div>`).join('') : '<p style="font-size:12px;color:var(--muted)">Nenhuma pessoa.</p>';
+  const pplHtml = ppl.length>0 ? ppl.map(p=>`<div class="pc"><div class="pa">${(p.name||'?')[0].toUpperCase()}</div><div style="flex:1"><div style="font-weight:700;font-size:12px">${p.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${[p.nationality,p.sex==='M'?'Masculino':p.sex==='F'?'Feminino':'',p.phone].filter(Boolean).join(' · ')}</div><div style="display:flex;gap:5px;margin-top:3px">${p.is_revisit?'<span class="tag t-amber" style="font-size:9px">🔄 Revisita</span>':''}${p.is_student?'<span class="tag t-green" style="font-size:9px">📖 Estudante</span>':''}</div></div></div>`).join('') : '<p style="font-size:12px;color:var(--muted)">Nenhuma pessoa.</p>';
   const visHtml = visits.length>0 ? [...visits].reverse().map(v=>`<div class="vl"><div class="vl-hd"><span>${fdate(v.visit_date)} ${v.visit_time?v.visit_time.slice(0,5):''}</span><span class="tag ${v.result==='attended'?'t-green':v.result==='not_home'?'t-amber':'t-gray'}">${VISIT_LABEL[v.result]||v.result}</span></div>${v.who_answered?`<div style="font-size:11px;color:var(--muted)">Atendeu: ${v.who_answered}</div>`:''}${v.note?`<div style="font-size:11px;color:var(--muted)">${v.note}</div>`:''}</div>`).join('') : '<p style="font-size:12px;color:var(--muted)">Sem visitas.</p>';
   const photoHtml = photos.length>0 ? `<div class="ph-grid">${photos.map(p=>`<div class="ph-thumb"><img src="${p}" onclick="window.open('${p}','_blank')"></div>`).join('')}</div>` : '';
   document.getElementById('det-title').textContent = a.name||'Endereço';
@@ -1141,7 +1210,11 @@ function addPersonForm(data) {
   div.style='background:var(--bg);border-radius:9px;padding:10px;margin-bottom:7px';
   div.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><strong style="font-size:11px;color:var(--p600)">Pessoa ${pCount}</strong><button class="btn btn-d btn-sm" style="padding:3px 8px" onclick="document.getElementById('${pid}').remove()">✕</button></div>
   <div class="fg2"><div class="fr"><label class="lbl">Nome</label><input type="text" class="pn" value="${data?.name||''}"></div><div class="fr"><label class="lbl">Celular</label><input type="text" class="pp" value="${data?.phone||''}"></div></div>
-  <div class="fg2"><div class="fr"><label class="lbl">Nacionalidade</label><input type="text" class="pna" value="${data?.nationality||''}"></div><div class="fr"><label class="lbl">Sexo</label><select class="psx"><option value="">—</option><option value="M" ${data?.sex==='M'?'selected':''}>Masculino</option><option value="F" ${data?.sex==='F'?'selected':''}>Feminino</option></select></div></div>`;
+  <div class="fg2"><div class="fr"><label class="lbl">Nacionalidade</label><input type="text" class="pna" value="${data?.nationality||''}"></div><div class="fr"><label class="lbl">Sexo</label><select class="psx"><option value="">—</option><option value="M" ${data?.sex==='M'?'selected':''}>Masculino</option><option value="F" ${data?.sex==='F'?'selected':''}>Feminino</option></select></div></div>
+  <div style="display:flex;gap:16px;margin-top:6px;padding:8px;background:var(--card);border-radius:7px;border:1px solid var(--border)">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer"><input type="checkbox" class="p-revisit" ${data?.is_revisit?'checked':''} style="width:16px;height:16px;accent-color:var(--p600)"> 🔄 Revisita</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer"><input type="checkbox" class="p-student" ${data?.is_student?'checked':''} style="width:16px;height:16px;accent-color:var(--p600)"> 📖 Estudante</label>
+  </div>`;
   document.getElementById('ppl-form').appendChild(div);
 }
 
@@ -1189,7 +1262,9 @@ async function saveAddress() {
     document.getElementById('ppl-form').querySelectorAll('[id^=pf]').forEach(div=>{
       const name=div.querySelector('.pn')?.value; const phone=div.querySelector('.pp')?.value;
       const nat=div.querySelector('.pna')?.value; const sex=div.querySelector('.psx')?.value;
-      if(name||phone) pplData.push({address_id:addressId,name,phone,nationality:nat,sex});
+      const isRevisit=div.querySelector('.p-revisit')?.checked||false;
+      const isStudent=div.querySelector('.p-student')?.checked||false;
+      if(name||phone) pplData.push({address_id:addressId,name,phone,nationality:nat,sex,is_revisit:isRevisit,is_student:isStudent});
     });
     if (pplData.length>0) await sb.from('people').insert(pplData);
     // Save new visits (only ones with local_ prefix = new)
@@ -1248,14 +1323,21 @@ async function saveQuickVisit() {
 function renderMainMap() {
   const gf = getF('map-fg') || 'all';
   const sf = getF('map-fs') || 'all';
+  const cf = getF('map-fc') || 'all';
+  const hf = getF('map-fh') || 'all';
+  // Populate selects
   const gs = document.getElementById('map-fg');
-  if (gs && gs.options.length<=1) {
-    gs.innerHTML='<option value="all">Todos grupos</option>'+cache.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');
-  }
+  if (gs) gs.innerHTML='<option value="all">Todos grupos</option>'+cache.groups.map(g=>`<option value="${g.id}" ${gf===g.id?'selected':''}>${g.icon} ${g.name}</option>`).join('');
+  const cs = document.getElementById('map-fc');
+  if (cs) { const cities=[...new Set(cache.addresses.map(a=>a.city).filter(Boolean))].sort(); cs.innerHTML='<option value="all">Todas cidades</option>'+cities.map(c=>`<option value="${c}" ${cf===c?'selected':''}>${c}</option>`).join(''); }
+  const hs = document.getElementById('map-fh');
+  if (hs) { const hoods=[...new Set(cache.addresses.filter(a=>cf==='all'||a.city===cf).map(a=>a.neighborhood).filter(Boolean))].sort(); hs.innerHTML='<option value="all">Todos bairros</option>'+hoods.map(h=>`<option value="${h}" ${hf===h?'selected':''}>${h}</option>`).join(''); }
   const list = cache.addresses.filter(a=>{
     const gok = gf==='all'||a.group_id===gf;
     const sok = sf==='all'||a.status===sf;
-    return gok&&sok&&a.lat&&a.lng;
+    const cok = cf==='all'||a.city===cf;
+    const hok = hf==='all'||a.neighborhood===hf;
+    return gok&&sok&&cok&&hok&&a.lat&&a.lng;
   });
   if (!mainMap) {
     mainMap = L.map('main-map').setView([-15.78,-47.93],5);
@@ -1264,18 +1346,28 @@ function renderMainMap() {
   const bounds = [];
   list.forEach(a => {
     const g = cache.groups.find(x=>x.id===a.group_id);
-    const ppl = (cache.people[a.id]||[]).map(p=>`<div class="lp-row">👤 ${p.name||'—'} ${p.nationality?'('+p.nationality+')':''} ${p.phone?'· '+p.phone:''}</div>`).join('');
+    const ppl = cache.people[a.id]||[];
+    const pplHtml = ppl.map(p=>`<div style="font-size:12px;padding:2px 0;border-bottom:1px solid #f0f0f0">
+      👤 <b>${p.name||'—'}</b>${p.nationality?' · '+p.nationality:''}${p.phone?' · '+p.phone:''}
+      ${p.is_revisit?'<span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 5px;border-radius:10px;margin-left:4px">🔄 Revisita</span>':''}
+      ${p.is_student?'<span style="background:#dcfce7;color:#166534;font-size:9px;padding:1px 5px;border-radius:10px;margin-left:4px">📖 Estudante</span>':''}
+    </div>`).join('');
     const vis = cache.visits[a.id]||[];
     const lastV = vis.length>0?fdate(vis[vis.length-1].visit_date):'Nunca';
-    const popup = `<div class="lp-name">${a.name||'Sem nome'} <span style="font-size:10px;font-family:monospace;color:#888">#${a.code||''}</span></div>
-      <div class="lp-row">${STATUS_ICON[a.status]} ${STATUS_LABEL[a.status]||''}</div>
-      <div class="lp-row">📍 ${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'—'}</div>
-      ${g?`<div class="lp-row">🗂 ${g.name}</div>`:''}${ppl}
-      <div class="lp-row">📅 ${lastV}</div>
-      ${a.best_time?`<div class="lp-row">⏰ ${a.best_time}</div>`:''}
-      ${a.notes?`<div class="lp-row">📝 ${a.notes}</div>`:''}
-      <a class="lp-btn" href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank">🗺 Ir até lá</a>`;
-    L.marker([a.lat,a.lng]).addTo(mainMap).bindPopup(popup,{maxWidth:260});
+    const popup = `<div style="font-family:system-ui,sans-serif">
+      <div style="font-weight:800;color:#4a1590;font-size:14px;margin-bottom:5px">${a.name||'Sem nome'} <span style="font-size:10px;font-family:monospace;color:#999">#${a.code||''}</span></div>
+      <div style="font-size:12px;margin-bottom:2px">${STATUS_ICON[a.status]} <b>${STATUS_LABEL[a.status]||''}</b></div>
+      <div style="font-size:12px;margin-bottom:2px">📍 ${a.street||''}${a.number?' '+a.number:''}</div>
+      ${a.neighborhood?`<div style="font-size:12px;margin-bottom:2px">🏘 ${a.neighborhood}</div>`:''}
+      ${a.city?`<div style="font-size:12px;margin-bottom:4px">🏙 ${a.city}</div>`:''}
+      ${g?`<div style="font-size:12px;margin-bottom:4px">🗂 ${g.name}</div>`:''}
+      ${ppl.length>0?`<div style="margin:5px 0;border-top:1px solid #eee;padding-top:5px">${pplHtml}</div>`:''}
+      <div style="font-size:12px;margin-top:4px">📅 Última visita: <b>${lastV}</b></div>
+      ${a.best_time?`<div style="font-size:12px">⏰ ${a.best_time}</div>`:''}
+      ${a.notes?`<div style="font-size:11px;color:#666;margin-top:4px;font-style:italic">${a.notes.slice(0,80)}${a.notes.length>80?'...':''}</div>`:''}
+      <a href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank" style="display:block;margin-top:8px;background:#1d4ed8;color:#fff;border:none;padding:7px 12px;border-radius:7px;font-size:12px;font-weight:700;text-align:center;text-decoration:none">🗺 Ir até lá no Google Maps</a>
+    </div>`;
+    L.marker([a.lat,a.lng]).addTo(mainMap).bindPopup(popup,{maxWidth:280});
     bounds.push([a.lat,a.lng]);
   });
   if (bounds.length>0) mainMap.fitBounds(bounds,{padding:[28,28]});
@@ -1329,26 +1421,49 @@ async function saveHood(){
 }
 function renderGroups(){
   const c=document.getElementById('groups-tree'); if(!c) return;
-  if(cache.cities.length===0&&cache.groups.length===0){c.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)">Crie cidades e grupos para organizar.</div>';return;}
+  const hasAnything = cache.cities.length>0||cache.hoods.length>0||cache.groups.length>0;
+  if(!hasAnything){c.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)">Crie uma cidade, depois bairros e grupos.</div>';return;}
   let html='';
+  // Cities with their hoods and groups
   cache.cities.forEach(city=>{
-    const cityGroups=cache.groups.filter(g=>g.city_id===city.id);
-    const hoodIds=[...new Set(cityGroups.map(g=>g.neighborhood_id).filter(Boolean))];
+    const cityHoods=cache.hoods.filter(h=>h.city_id===city.id);
+    const cityGroupsNoHood=cache.groups.filter(g=>g.city_id===city.id&&!g.neighborhood_id);
     let inner='';
-    hoodIds.forEach(hid=>{
-      const hood=cache.hoods.find(h=>h.id===hid);
-      const hgroups=cityGroups.filter(g=>g.neighborhood_id===hid);
-      if(hood) inner+=`<div class="gt-hood-hd">🏘 ${hood.name}</div>`;
+    // Hoods under this city
+    cityHoods.forEach(hood=>{
+      const hgroups=cache.groups.filter(g=>g.neighborhood_id===hood.id);
+      inner+=`<div class="gt-hood-hd" style="display:flex;justify-content:space-between;align-items:center">
+        <span>🏘 ${hood.name} <span style="font-size:10px;color:var(--muted)">(${hgroups.length} grupo${hgroups.length!==1?'s':''})</span></span>
+        <button class="btn btn-d btn-sm" style="padding:2px 7px;font-size:10px" onclick="event.stopPropagation();delHood('${hood.id}')">✕</button>
+      </div>`;
+      if(hgroups.length>0) inner+=hgroups.map(g=>renderGroupRow(g)).join('');
+      else inner+=`<div style="padding:8px 40px;font-size:11px;color:var(--muted)">Nenhum grupo neste bairro.</div>`;
+    });
+    // Groups without hood in this city
+    if(cityGroupsNoHood.length>0){
+      inner+=`<div class="gt-hood-hd" style="font-size:11px;color:var(--muted)">Sem bairro definido</div>`;
+      inner+=cityGroupsNoHood.map(g=>renderGroupRow(g)).join('');
+    }
+    if(!inner) inner=`<div style="padding:10px 16px;font-size:11px;color:var(--muted)">Nenhum bairro ou grupo nesta cidade.</div>`;
+    html+=`<div class="gt-city"><div class="gt-city-hd"><span>🏙 ${city.name} <span style="font-weight:400;font-size:11px;opacity:.7">(${cityHoods.length} bairro${cityHoods.length!==1?'s':''})</span></span><button class="btn btn-d btn-sm" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:3px 8px" onclick="event.stopPropagation();delCity('${city.id}')">✕</button></div><div>${inner}</div></div>`;
+  });
+  // Hoods without city
+  const hoodsNoCity=cache.hoods.filter(h=>!h.city_id);
+  if(hoodsNoCity.length>0){
+    let inner='';
+    hoodsNoCity.forEach(hood=>{
+      const hgroups=cache.groups.filter(g=>g.neighborhood_id===hood.id);
+      inner+=`<div class="gt-hood-hd" style="display:flex;justify-content:space-between"><span>🏘 ${hood.name}</span><button class="btn btn-d btn-sm" style="padding:2px 7px;font-size:10px" onclick="delHood('${hood.id}')">✕</button></div>`;
       inner+=hgroups.map(g=>renderGroupRow(g)).join('');
     });
-    const noHood=cityGroups.filter(g=>!g.neighborhood_id);
-    inner+=noHood.map(g=>renderGroupRow(g)).join('');
-    html+=`<div class="gt-city"><div class="gt-city-hd"><span>🏙 ${city.name}</span><button class="btn btn-d btn-sm" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:3px 8px" onclick="event.stopPropagation();delCity('${city.id}')">✕</button></div><div>${inner}</div></div>`;
-  });
-  const noCity=cache.groups.filter(g=>!g.city_id);
-  if(noCity.length>0) html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted)">Sem cidade</div><div>${noCity.map(g=>renderGroupRow(g)).join('')}</div></div>`;
-  c.innerHTML=html||'<div style="text-align:center;padding:28px;color:var(--muted)">Nenhum grupo.</div>';
+    html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted)">Bairros sem cidade</div><div>${inner}</div></div>`;
+  }
+  // Groups without city or hood
+  const noCity=cache.groups.filter(g=>!g.city_id&&!g.neighborhood_id);
+  if(noCity.length>0) html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted)">Grupos sem cidade/bairro</div><div>${noCity.map(g=>renderGroupRow(g)).join('')}</div></div>`;
+  c.innerHTML=html||'<div style="text-align:center;padding:28px;color:var(--muted)">Nenhum item.</div>';
 }
+async function delHood(id){if(!confirm('Excluir bairro?'))return;await sb.from('neighborhoods').delete().eq('id',id);cache.hoods=cache.hoods.filter(h=>h.id!==id);cache.groups.forEach(g=>{if(g.neighborhood_id===id)g.neighborhood_id=null;});renderGroups();}
 function renderGroupRow(g){
   const cnt=cache.addresses.filter(a=>a.group_id===g.id).length;
   return`<div class="gt-group" onclick="filterByGroup('${g.id}')"><span style="font-size:18px">${g.icon}</span><div style="flex:1"><div style="font-weight:700;font-size:12px">${g.name}</div><div style="font-size:11px;color:var(--muted)">${cnt} endereço${cnt!==1?'s':''}${g.leader?' · '+g.leader:''}</div></div>
@@ -1361,113 +1476,210 @@ async function delCity(id){if(!confirm('Excluir cidade?'))return;await sb.from('
 // =============================================
 // CENSUS
 // =============================================
-function populateCensusFilters(){
-  const cf=document.getElementById('cen-city-filter'); if(!cf) return;
-  const prev=cf.value;
-  cf.innerHTML='<option value="all">Todas as cidades</option>'+cache.cities.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-  cf.value=prev;
-  const hf=document.getElementById('cen-hood-filter');
-  const phv=hf.value;
-  const cid=cf.value;
-  const hoods=cid==='all'?cache.hoods:cache.hoods.filter(h=>h.city_id===cid);
-  hf.innerHTML='<option value="all">Todos os bairros</option>'+hoods.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
-  hf.value=phv;
-}
-function renderCensus(){
-  populateCensusFilters();
-  const cid=getF('cen-city-filter');
-  const hid=getF('cen-hood-filter');
-  let list=cache.censusStreets.filter(s=>{
-    const cok=cid==='all'||s.city_id===cid;
-    const hok=hid==='all'||s.neighborhood_id===hid;
-    return cok&&hok;
-  });
-  const total=list.length; const done=list.filter(s=>s.status==='done').length; const prog=list.filter(s=>s.status==='in_progress').length;
-  const pct=total>0?Math.round(done/total*100):0;
-  const statEl=document.getElementById('census-stats');
-  statEl.innerHTML=total===0?'':`<div class="card"><div class="card-bd"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span><b>${done}</b>/${total} concluídas</span><span style="font-weight:700;color:var(--p600)">${pct}%</span></div><div style="background:var(--border);border-radius:4px;height:8px"><div style="background:var(--p500);border-radius:4px;height:8px;width:${pct}%"></div></div><div style="font-size:11px;color:var(--muted);margin-top:5px">${prog} em progresso · ${total-done-prog} pendentes</div></div></div>`;
-  // Group by city/hood
-  const cl=document.getElementById('census-list'); if(!cl) return;
-  if(list.length===0){cl.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)">Nenhuma rua cadastrada.</div>';return;}
-  // Group streets by city then hood
-  const byCityHood={};
-  list.forEach(s=>{
-    const city=cache.cities.find(c=>c.id===s.city_id);
-    const hood=cache.hoods.find(h=>h.id===s.neighborhood_id);
-    const ck=(city?.name||'Sem cidade');
-    const hk=(hood?.name||'Sem bairro');
-    if(!byCityHood[ck]) byCityHood[ck]={};
-    if(!byCityHood[ck][hk]) byCityHood[ck][hk]=[];
-    byCityHood[ck][hk].push(s);
-  });
-  cl.innerHTML=Object.entries(byCityHood).map(([city,hoods])=>`
-    <div class="gt-city">
-      <div class="gt-city-hd">🏙 ${city}</div>
-      ${Object.entries(hoods).map(([hood,streets])=>`
-        <div class="gt-hood-hd">🏘 ${hood}</div>
-        ${streets.map(s=>{
-          const sess=cache.censusSessions.filter(x=>x.street_id===s.id);
-          const lastSess=sess.length>0?sess[sess.length-1]:null;
-          return`<div class="cen-street" style="padding-left:40px">
-            <div class="cen-status ${s.status==='done'?'cen-done':s.status==='in_progress'?'cen-prog':'cen-pend'}"></div>
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:13px">${s.street_name}</div>
-              <div style="font-size:11px;color:var(--muted)">${s.status==='done'?'✅ Concluída':s.status==='in_progress'?'🔄 Em progresso':'⏳ Pendente'}${s.last_census_date?' · '+fdate(s.last_census_date):''}</div>
-              ${lastSess&&lastSess.stop_note?`<div style="font-size:11px;color:var(--warn)">📌 Parou: ${lastSess.stop_note}</div>`:''}
-            </div>
-            <div style="display:flex;gap:4px">
-              <button class="btn btn-p btn-sm" onclick="openCensusSession('${s.id}')">📋</button>
-              <button class="btn btn-o btn-sm" onclick="showCensusStreetModal('${s.id}')">✏️</button>
-            </div>
-          </div>`;
-        }).join('')}`).join('')}
-    </div>`).join('');
-}
-function showCensusStreetModal(id){
-  const s=id?cache.censusStreets.find(x=>x.id===id):null;
-  setF('cen-id',s?.id||''); setF('cen-street',s?.street_name||''); setF('cen-notes',s?.notes||'');
-  const cc=document.getElementById('cen-city');
-  cc.innerHTML='<option value="">Selecione</option>'+cache.cities.map(c=>`<option value="${c.id}" ${s?.city_id===c.id?'selected':''}>${c.name}</option>`).join('');
-  const ch=document.getElementById('cen-hood');
-  ch.innerHTML='<option value="">Selecione</option>'+cache.hoods.map(h=>`<option value="${h.id}" ${s?.neighborhood_id===h.id?'selected':''}>${h.name}</option>`).join('');
-  const cg=document.getElementById('cen-group');
-  cg.innerHTML='<option value="">Sem grupo</option>'+cache.groups.map(g=>`<option value="${g.id}" ${s?.group_id===g.id?'selected':''}>${g.name}</option>`).join('');
-  document.getElementById('mo-cen').style.display='flex';
-}
-async function saveCensusStreet(){
-  const nm=getF('cen-street').trim(); if(!nm){toast('Nome obrigatório');return;}
-  const id=getF('cen-id');
-  const data={street_name:nm,city_id:getF('cen-city')||null,neighborhood_id:getF('cen-hood')||null,group_id:getF('cen-group')||null,notes:getF('cen-notes')};
-  loading(true);
-  if(id){await sb.from('census_streets').update(data).eq('id',id);}
-  else{await sb.from('census_streets').insert(data);}
-  const {data:cs}=await sb.from('census_streets').select('*').order('street_name');
-  cache.censusStreets=cs||[]; loading(false); closeModal('mo-cen'); renderCensus(); toast('✅ Salvo!');
-}
-function openCensusSession(streetId){
-  setF('cens-street-id',streetId); setF('cens-worker',''); setF('cens-stop',''); setF('cens-note','');
-  setF('cens-date',new Date().toISOString().slice(0,10));
-  document.getElementById('cens-status').value='in_progress';
-  const s=cache.censusStreets.find(x=>x.id===streetId);
-  document.getElementById('cen-sess-title').textContent='Senso: '+(s?.street_name||'Rua');
-  document.getElementById('mo-cen-sess').style.display='flex';
-}
-async function saveCensusSession(){
-  const sid=getF('cens-street-id'); if(!sid) return;
-  const status=getF('cens-status');
-  loading(true);
-  await sb.from('census_sessions').insert({street_id:sid,worker_name:getF('cens-worker'),stop_note:getF('cens-stop'),completed:status==='done',started_at:new Date().toISOString()});
-  await sb.from('census_streets').update({status,last_census_date:getF('cens-date'),updated_at:new Date().toISOString()}).eq('id',sid);
-  const {data:cs}=await sb.from('census_streets').select('*');
-  cache.censusStreets=cs||[];
-  const {data:sess}=await sb.from('census_sessions').select('*');
-  cache.censusSessions=sess||[];
-  loading(false); closeModal('mo-cen-sess'); renderCensus(); renderHome(); toast('✅ Senso registrado!');
+// =============================================
+// CENSUS — OSM-based street browser
+// =============================================
+const CENSUS_CITIES = [
+  {name:'Rio do Sul', state:'SC', osm:'Rio do Sul, Santa Catarina, Brasil'},
+  {name:'Laurentino', state:'SC', osm:'Laurentino, Santa Catarina, Brasil'},
+  {name:"Rio d'Oeste", state:'SC', osm:"Rio d'Oeste, Santa Catarina, Brasil"},
+  {name:'Agronômica', state:'SC', osm:'Agronômica, Santa Catarina, Brasil'},
+];
+let censusState = {city:null, hood:null, streets:[], completedStreets:{}, censusMap:null};
+
+async function loadCensusCompleted(){
+  const {data} = await sb.from('census_streets').select('*');
+  censusState.completedStreets = {};
+  (data||[]).forEach(s=>{ censusState.completedStreets[s.street_name+'|'+s.neighborhood] = s; });
 }
 
-// =============================================
-// EVENTS
-// =============================================
+async function renderCensus(){
+  await loadCensusCompleted();
+  document.getElementById('census-city-list').style.display='block';
+  document.getElementById('census-hood-view').style.display='none';
+  const el = document.getElementById('census-city-list');
+  el.innerHTML = '<div style="margin-bottom:12px"><h3 style="font-size:15px;font-weight:800;color:var(--p700)">📋 Senso de Território</h3><p style="font-size:12px;color:var(--muted)">Selecione uma cidade para ver os bairros e ruas.</p></div>';
+  // For each city, show summary
+  const summaries = await Promise.all(CENSUS_CITIES.map(async city=>{
+    const done = Object.values(censusState.completedStreets).filter(s=>s.city_name===city.name&&s.status==='done').length;
+    return {city, done};
+  }));
+  el.innerHTML += summaries.map(({city, done})=>`
+    <div class="card" style="cursor:pointer" onclick="openCensusCity('${city.name}')">
+      <div class="card-bd" style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px">🏙</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:14px;color:var(--p700)">${city.name}</div>
+          <div style="font-size:11px;color:var(--muted)">SC · Clique para ver bairros e ruas</div>
+          ${done>0?`<div style="font-size:11px;color:var(--success);margin-top:2px">✅ ${done} rua${done!==1?'s':''} concluída${done!==1?'s':''}</div>`:''}
+        </div>
+        <span style="font-size:20px;color:var(--muted)">›</span>
+      </div>
+    </div>`).join('');
+}
+
+async function openCensusCity(cityName){
+  loading(true, 'Carregando bairros...');
+  censusState.city = cityName;
+  // Fetch neighborhoods via OSM Nominatim
+  const city = CENSUS_CITIES.find(c=>c.name===cityName);
+  try{
+    const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityName+', Santa Catarina, Brasil')}&format=json&addressdetails=1&limit=1`);
+    const data = await resp.json();
+    if(!data||data.length===0){toast('Cidade não encontrada no mapa.');loading(false);return;}
+    const cityData = data[0];
+    // Fetch suburbs/neighborhoods via Overpass
+    const bbox = cityData.boundingbox; // [south,north,west,east]
+    const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    const query = `[out:json][timeout:30];
+      (
+        way["highway"]["name"](${bbox[0]},${bbox[2]},${bbox[1]},${bbox[3]});
+      );
+      out tags;`;
+    const r2 = await fetch(overpassUrl, {method:'POST',body:'data='+encodeURIComponent(query)});
+    const osmData = await r2.json();
+    // Extract unique neighborhoods/suburbs
+    const hoodSet = new Set();
+    (osmData.elements||[]).forEach(el=>{
+      const suburb = el.tags?.['addr:suburb']||el.tags?.['suburb']||el.tags?.['neighbourhood']||el.tags?.['quarter']||el.tags?.['district']||null;
+      if(suburb) hoodSet.add(suburb);
+    });
+    // If no hoods found, use generic
+    let hoods = [...hoodSet].sort();
+    if(hoods.length===0) hoods = ['Centro'];
+    // Also group streets by their name prefix to infer hoods
+    // Show city view with hoods
+    loading(false);
+    showCensusCityView(cityName, bbox, hoods, osmData.elements||[]);
+  } catch(e){
+    loading(false);
+    // Fallback: load streets directly
+    showCensusCityView(cityName, null, ['Centro'], []);
+    toast('Carregado com dados limitados.');
+  }
+}
+
+function showCensusCityView(cityName, bbox, hoods, allStreets){
+  document.getElementById('census-city-list').style.display='block';
+  document.getElementById('census-hood-view').style.display='none';
+  const el = document.getElementById('census-city-list');
+  // Group streets by hood
+  const streetsByHood = {};
+  hoods.forEach(h=>streetsByHood[h]=[]);
+  allStreets.forEach(s=>{
+    const n = s.tags?.name; if(!n) return;
+    const hw = s.tags?.highway;
+    if(!['residential','secondary','tertiary','unclassified','living_street','pedestrian','path','track','service','primary','trunk'].includes(hw)) return;
+    const suburb = s.tags?.['addr:suburb']||s.tags?.['suburb']||s.tags?.['neighbourhood']||s.tags?.['quarter']||'Centro';
+    if(!streetsByHood[suburb]) streetsByHood[suburb]=[];
+    if(!streetsByHood[suburb].find(x=>x===n)) streetsByHood[suburb].push(n);
+  });
+  // Store for later use
+  censusState.streetsByHood = streetsByHood;
+  censusState.bbox = bbox;
+  censusState.allStreets = allStreets;
+  // Back button + city header
+  el.innerHTML = `<button class="btn btn-o btn-sm" onclick="renderCensus()" style="margin-bottom:10px">← Cidades</button>
+    <h3 style="font-size:15px;font-weight:800;color:var(--p700);margin-bottom:12px">🏙 ${cityName}</h3>`;
+  // Show hoods as expandable
+  hoods.forEach(hood=>{
+    const streets = [...new Set(streetsByHood[hood]||[])].sort();
+    const done = streets.filter(s=>censusState.completedStreets[s+'|'+hood]?.status==='done').length;
+    const pct = streets.length>0?Math.round(done/streets.length*100):0;
+    const hid = 'ch-'+hood.replace(/\s+/g,'_').replace(/[^a-z0-9_]/gi,'');
+    el.innerHTML += `<div class="card" style="margin-bottom:8px">
+      <div style="padding:11px 14px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="toggleCensusHood('${hid}','${cityName}','${hood.replace(/'/g,"\'")}',${JSON.stringify(streets).replace(/"/g,'&quot;')})">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">🏘 ${hood}</div>
+          <div style="font-size:11px;color:var(--muted)">${streets.length} rua${streets.length!==1?'s':''} · ${done} concluída${done!==1?'s':''}</div>
+          <div style="height:5px;background:var(--border);border-radius:3px;margin-top:5px;width:100%"><div style="height:5px;background:var(--p500);border-radius:3px;width:${pct}%"></div></div>
+        </div>
+        <div style="font-weight:800;color:var(--p600)">${pct}%</div>
+        <span style="color:var(--muted)">›</span>
+      </div>
+    </div>`;
+  });
+}
+
+function toggleCensusHood(hid, cityName, hood, streets){
+  censusState.city=cityName; censusState.hood=hood; censusState.streets=streets;
+  document.getElementById('census-city-list').style.display='none';
+  document.getElementById('census-hood-view').style.display='block';
+  document.getElementById('census-hood-title').textContent='🏘 '+hood+' — '+cityName;
+  renderCensusHood(cityName, hood, streets);
+}
+
+function closeCensusHood(){
+  document.getElementById('census-city-list').style.display='block';
+  document.getElementById('census-hood-view').style.display='none';
+}
+
+function renderCensusHood(cityName, hood, streets){
+  const done = streets.filter(s=>censusState.completedStreets[s+'|'+hood]?.status==='done').length;
+  const pct = streets.length>0?Math.round(done/streets.length*100):0;
+  // Stats
+  document.getElementById('census-hood-stats').innerHTML=`
+    <div style="background:var(--card);border-radius:10px;padding:11px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">${done}/${streets.length} ruas concluídas</div>
+      <div style="height:8px;background:var(--border);border-radius:4px"><div style="height:8px;background:var(--p500);border-radius:4px;width:${pct}%;transition:.5s"></div></div></div>
+      <div style="font-size:24px;font-weight:800;color:var(--p600)">${pct}%</div>
+    </div>`;
+  // Street list
+  const listEl=document.getElementById('census-street-list');
+  listEl.innerHTML=streets.map(street=>{
+    const key=street+'|'+hood;
+    const rec=censusState.completedStreets[key];
+    const isDone=rec?.status==='done';
+    const inProg=rec?.status==='in_progress';
+    return`<div style="background:var(--card);border-radius:9px;padding:10px 13px;margin-bottom:6px;display:flex;align-items:center;gap:10px;${isDone?'opacity:.7':''}">
+      <div style="width:10px;height:10px;border-radius:50%;background:${isDone?'#22c55e':inProg?'#f59e0b':'#d1d5db'};flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--muted)':''}">${street}</div>
+        ${rec?.last_census_date?`<div style="font-size:10px;color:var(--muted)">✅ Concluída em ${fdate(rec.last_census_date)}</div>`:''}
+        ${rec?.stop_note?`<div style="font-size:10px;color:var(--warn)">📌 ${rec.stop_note}</div>`:''}
+      </div>
+      ${isDone
+        ?`<button class="btn btn-o btn-sm" style="font-size:10px;padding:3px 8px" onclick="resetCensusStreet('${street.replace(/'/g,"\'")}','${hood.replace(/'/g,"\'")}','${cityName}')">↩ Resetar</button>`
+        :`<button class="btn btn-p btn-sm" style="font-size:11px;padding:4px 10px" onclick="markStreetDone('${street.replace(/'/g,"\'")}','${hood.replace(/'/g,"\'")}','${cityName}')">✓ Feita</button>`}
+    </div>`;
+  }).join('');
+}
+
+async function markStreetDone(street, hood, cityName){
+  const key=street+'|'+hood;
+  const today=new Date().toISOString().slice(0,10);
+  loading(true,'Salvando...');
+  // Upsert into census_streets
+  const existing=censusState.completedStreets[key];
+  if(existing){
+    await sb.from('census_streets').update({status:'done',last_census_date:today,updated_at:new Date().toISOString()}).eq('id',existing.id);
+  } else {
+    const {data}=await sb.from('census_streets').insert({street_name:street,neighborhood:hood,city_name:cityName,status:'done',last_census_date:today}).select().single();
+    if(data) censusState.completedStreets[key]=data;
+  }
+  if(existing) censusState.completedStreets[key]={...existing,status:'done',last_census_date:today};
+  loading(false);
+  renderCensusHood(cityName,hood,censusState.streets);
+  renderHome();
+  toast('✅ Rua marcada como concluída!');
+}
+
+async function resetCensusStreet(street, hood, cityName){
+  if(!confirm(`Resetar senso de "${street}"?`)) return;
+  const key=street+'|'+hood;
+  const existing=censusState.completedStreets[key];
+  if(existing){await sb.from('census_streets').delete().eq('id',existing.id);delete censusState.completedStreets[key];}
+  renderCensusHood(cityName,hood,censusState.streets);
+  toast('↩ Resetado.');
+}
+
+// Keep old census functions for compat but redirect
+function populateCensusFilters(){}
+function showCensusStreetModal(){}
+async function saveCensusStreet(){}
+async function saveCensusSession(){}
+function openCensusSession(){}
+
 function showEventModal(id){
   const e=id?cache.events.find(x=>x.id===id):null;
   document.getElementById('mo-ev-title').textContent=e?'Editar Evento':'Novo Evento';
@@ -1551,8 +1763,19 @@ function updateShareUI(){
   else if(type==='status'){vlbl.textContent='Status';vsel.innerHTML=Object.entries(STATUS_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');}
 }
 function renderShareManual(){
-  const c=document.getElementById('sh-manual');
-  c.innerHTML=cache.addresses.map(a=>`<div class="addr-sel ${shSelectedIds2.has(a.id)?'selected':''}" onclick="toggleShSel2('${a.id}',this)"><div class="addr-sel-chk">${shSelectedIds2.has(a.id)?'✓':''}</div><div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div><div style="font-size:11px;color:var(--muted)">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</div></div></div>`).join('');
+  const c=document.getElementById('sh-manual'); if(!c) return;
+  const q=(getF('sh-smart-search')||'').toLowerCase();
+  const filtered=cache.addresses.filter(a=>{
+    if(!q) return true;
+    return [a.name,a.street,a.neighborhood,a.city,a.code].filter(Boolean).join(' ').toLowerCase().includes(q);
+  });
+  const selCount=shSelectedIds2.size;
+  c.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:7px;display:flex;justify-content:space-between"><span>${filtered.length} endereço${filtered.length!==1?'s':''} encontrado${filtered.length!==1?'s':''}</span><span style="color:var(--p600);font-weight:700">${selCount} selecionado${selCount!==1?'s':''}</span></div>`+
+  filtered.map(a=>`<div class="addr-sel ${shSelectedIds2.has(a.id)?'selected':''}" onclick="toggleShSel2('${a.id}',this)">
+    <div class="addr-sel-chk">${shSelectedIds2.has(a.id)?'✓':''}</div>
+    <div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div>
+    <div style="font-size:11px;color:var(--muted)">${[a.street,a.number,a.neighborhood,a.city].filter(Boolean).join(', ')||'—'}</div></div>
+  </div>`).join('');
 }
 function toggleShSel2(id,el){
   if(shSelectedIds2.has(id)){shSelectedIds2.delete(id);el.classList.remove('selected');el.querySelector('.addr-sel-chk').textContent='';}
@@ -1578,25 +1801,45 @@ async function createShareLink(){
 }
 function cpyLink(){navigator.clipboard.writeText(getF('sh-link-out')).then(()=>toast('🔗 Copiado!')).catch(()=>toast('Selecione e copie.'));}
 function waShare(){const url=encodeURIComponent('📖 Territórios Bíblicos\n'+getF('sh-link-out'));window.open('https://wa.me/?text='+url,'_blank');}
+function getShareLinkAddresses(l){
+  if(l.filter_type==='custom') return cache.addresses.filter(a=>l.address_ids&&l.address_ids.includes(a.id));
+  if(l.filter_type==='group') return cache.addresses.filter(a=>a.group_id===l.filter_value);
+  if(l.filter_type==='city') return cache.addresses.filter(a=>a.city===l.filter_value);
+  if(l.filter_type==='neighborhood') return cache.addresses.filter(a=>a.neighborhood===l.filter_value);
+  if(l.filter_type==='status') return cache.addresses.filter(a=>a.status===l.filter_value);
+  return cache.addresses;
+}
+function toggleLinkPreview(id){
+  const el=document.getElementById('link-preview-'+id);
+  if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
 function renderActiveLinks(){
   const c=document.getElementById('active-links'); if(!c) return;
   const active=cache.shareLinks.filter(l=>l.is_active&&new Date(l.expires_at)>new Date());
-  if(active.length===0){c.innerHTML='<p style="font-size:12px;color:var(--muted)">Nenhum link ativo.</p>';return;}
+  const expired=cache.shareLinks.filter(l=>!l.is_active||new Date(l.expires_at)<=new Date());
+  if(active.length===0&&expired.length===0){c.innerHTML='<p style="font-size:12px;color:var(--muted)">Nenhum link criado.</p>';return;}
   const baseUrl=window.location.origin+window.location.pathname;
-  c.innerHTML=active.map(l=>{
+  const renderLink=(l,isActive)=>{
     const daysLeft=Math.ceil((new Date(l.expires_at)-Date.now())/86400000);
     const url=baseUrl+'#/t/'+l.token;
-    return`<div style="background:var(--bg);border-radius:9px;padding:10px;margin-bottom:7px">
-      <div style="font-weight:700;font-size:13px">${l.label||l.token}</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:5px">${l.filter_type} · expira em ${daysLeft} dia${daysLeft!==1?'s':''}</div>
-      <div style="display:flex;gap:6px">
-        <input type="text" value="${url}" readonly style="font-size:11px;font-family:monospace;flex:1">
-        <button class="btn btn-p btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Copiado!'))">📋</button>
-        <button class="btn btn-sm" style="background:#25d366;color:#fff" onclick="window.open('https://wa.me/?text='+encodeURIComponent('📖 '+decodeURI('${encodeURIComponent(url)}')),'_blank')">📲</button>
-        <button class="btn btn-d btn-sm" onclick="revokeLink('${l.id}')">✕</button>
+    const addrs=getShareLinkAddresses(l);
+    const previewHtml=addrs.slice(0,10).map(a=>`<div style="font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">${a.name||'—'} <span style="color:var(--muted)">${[a.street,a.neighborhood].filter(Boolean).join(', ')||''}</span></div>`).join('')+(addrs.length>10?`<div style="font-size:11px;color:var(--muted);padding-top:4px">+${addrs.length-10} mais...</div>`:'');
+    return`<div style="background:var(--bg);border-radius:9px;padding:10px;margin-bottom:7px;${!isActive?'opacity:.6':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div style="font-weight:700;font-size:13px">${l.label||l.token} ${!isActive?'<span style="font-size:10px;color:var(--danger)">Expirado</span>':''}</div>
+        <button class="btn btn-o btn-sm" style="padding:2px 8px;font-size:11px" onclick="toggleLinkPreview('${l.id}')">👁 ${addrs.length} end.</button>
       </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${l.filter_type} · ${isActive?`expira em ${daysLeft} dia${daysLeft!==1?'s':''}`:'expirado'}</div>
+      <div id="link-preview-${l.id}" style="display:none;background:var(--card);border-radius:7px;padding:8px;margin-bottom:8px;max-height:180px;overflow-y:auto">${previewHtml}</div>
+      ${isActive?`<div style="display:flex;gap:5px;flex-wrap:wrap">
+        <input type="text" value="${url}" readonly style="font-size:10px;font-family:monospace;flex:1;min-width:100px">
+        <button class="btn btn-p btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('Copiado!'))">📋</button>
+        <button class="btn btn-sm" style="background:#25d366;color:#fff" onclick="window.open('https://wa.me/?text='+encodeURIComponent('📖 Territórios:\n${url}'),'_blank')">📲</button>
+        <button class="btn btn-d btn-sm" onclick="revokeLink('${l.id}')">✕</button>
+      </div>`:''}
     </div>`;
-  }).join('');
+  };
+  c.innerHTML=(active.length>0?active.map(l=>renderLink(l,true)).join(''):'')+(expired.length>0?`<div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 5px">Expirados</div>`+expired.map(l=>renderLink(l,false)).join(''):'');
 }
 async function revokeLink(id){await sb.from('share_links').update({is_active:false}).eq('id',id);cache.shareLinks=cache.shareLinks.filter(l=>l.id!==id);renderActiveLinks();toast('Link revogado.');}
 
@@ -1740,7 +1983,7 @@ async function loadPublicView(token){
       ${a.best_time?`<div class="lp-row">⏰ ${a.best_time}</div>`:''}
       ${a.notes?`<div class="lp-row">📝 ${a.notes}</div>`:''}
       <button class="lp-btn" onclick="openPubVisit('${a.id}')">📅 Registrar visita</button>
-      <a class="lp-btn" href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank" style="margin-top:4px">🗺 Navegar</a>`;
+      <a class="lp-btn" href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank" style="margin-top:4px;background:#1d4ed8">🗺 Ir até lá</a>`;
     L.marker([a.lat,a.lng]).addTo(pubMap).bindPopup(popup,{maxWidth:260});
     bounds.push([a.lat,a.lng]);
   });

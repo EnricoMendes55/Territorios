@@ -482,7 +482,7 @@ textarea{resize:vertical;min-height:70px;}
   <button class="btn btn-o btn-sm" onclick="addPersonForm(null)" style="margin-bottom:11px">+ Adicionar pessoa</button>
   <div class="sh">📋 Informações</div>
   <div class="fg2">
-    <div class="fr"><label class="lbl">Grupo</label><select id="f-group"><option value="">Sem grupo</option></select></div>
+    <div class="fr"><label class="lbl">Grupo</label><select id="f-group" onchange="onGroupChange()"><option value="">Sem grupo</option></select></div>
     <div class="fr"><label class="lbl">Status</label>
       <select id="f-status">
         <option value="pending">Não visitado</option><option value="revisit">Revisita</option>
@@ -1171,24 +1171,61 @@ function showDetail(id) {
 // =============================================
 // SAVE ADDRESS
 // =============================================
+function populateAddrCitySelect(selectedCity){
+  const sel=document.getElementById('f-city'); if(!sel) return;
+  const cities=[...new Set(cache.cities.map(c=>c.name))].sort();
+  sel.innerHTML='<option value="">Selecione a cidade</option>'+cities.map(c=>`<option value="${c}" ${c===selectedCity?'selected':''}>${c}</option>`).join('');
+}
+function populateAddrHoodSelect(cityName, selectedHood){
+  const sel=document.getElementById('f-hood'); if(!sel) return;
+  // Filter hoods by city
+  const city=cache.cities.find(c=>c.name===cityName);
+  let hoods=[];
+  if(city) hoods=cache.hoods.filter(h=>h.city_id===city.id).map(h=>h.name).sort();
+  else hoods=cache.hoods.map(h=>h.name).sort();
+  sel.innerHTML='<option value="">Selecione o bairro</option>'+hoods.map(h=>`<option value="${h}" ${h===selectedHood?'selected':''}>${h}</option>`).join('');
+}
+function onAddrCityChange(){
+  const city=getF('f-city');
+  populateAddrHoodSelect(city,'');
+}
+function onGroupChange(){
+  const gid=getF('f-group'); if(!gid) return;
+  const group=cache.groups.find(g=>g.id===gid); if(!group) return;
+  // Find city name
+  const city=cache.cities.find(c=>c.id===group.city_id);
+  const hood=cache.hoods.find(h=>h.id===group.neighborhood_id);
+  if(city){
+    populateAddrCitySelect(city.name);
+    populateAddrHoodSelect(city.name, hood?.name||'');
+  } else if(hood){
+    populateAddrHoodSelect('', hood.name);
+  }
+  if(city) setF('f-city',city.name);
+  if(hood) setF('f-hood',hood.name);
+}
 function showAddressModal(id) {
   editPhotosLocal=[]; editVisitsLocal=[]; pCount=0;
   document.getElementById('ppl-form').innerHTML='';
   document.getElementById('ph-prev').innerHTML='';
   document.getElementById('visits-log').innerHTML='';
   document.getElementById('add-visit-form').style.display='none';
-  ['f-name','f-street','f-number','f-hood','f-city','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps','f-code'].forEach(i=>setF(i,''));
+  ['f-name','f-street','f-number','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps','f-code'].forEach(i=>setF(i,''));
   setF('f-status','pending'); setF('f-group','');
   updateGroupSelect('f-group');
+  populateAddrCitySelect('');
+  populateAddrHoodSelect('','');
   if (id) {
     const a = cache.addresses.find(x=>x.id===id); if (!a) return;
     document.getElementById('mo-addr-title').textContent='Editar Endereço';
     document.getElementById('del-btn').style.display = userRole==='admin'?'':'none';
     setF('ei',id); setF('f-name',a.name); setF('f-street',a.street); setF('f-number',a.number);
-    setF('f-hood',a.neighborhood); setF('f-city',a.city); setF('f-comp',a.complement);
-    setF('f-lat',a.lat); setF('f-lng',a.lng); setF('f-notes',a.notes);
+    setF('f-comp',a.complement); setF('f-lat',a.lat); setF('f-lng',a.lng); setF('f-notes',a.notes);
     setF('f-besttime',a.best_time); setF('f-lastpub',a.last_pub); setF('f-code',a.code);
     setF('f-status',a.status); setF('f-group',a.group_id||'');
+    // Populate city/hood selects with current values
+    populateAddrCitySelect(a.city||'');
+    populateAddrHoodSelect(a.city||'', a.neighborhood||'');
     (cache.people[id]||[]).forEach(p=>addPersonForm(p));
     editVisitsLocal = [...(cache.visits[id]||[])];
     renderVisitsForm();
@@ -1240,8 +1277,8 @@ async function saveAddress() {
   try {
     const id = getF('ei') || null;
     const addrData = {
-      name:nm, street:getF('f-street'), number:getF('f-number'), neighborhood:getF('f-hood'),
-      city:getF('f-city'), complement:getF('f-comp'), lat:parseFloat(getF('f-lat'))||null,
+      name:nm, street:getF('f-street'), number:getF('f-number'), neighborhood:getF('f-hood')||null,
+      city:getF('f-city')||null, complement:getF('f-comp'), lat:parseFloat(getF('f-lat'))||null,
       lng:parseFloat(getF('f-lng'))||null, status:getF('f-status'),
       group_id:getF('f-group')||null, best_time:getF('f-besttime'), last_pub:getF('f-lastpub'),
       notes:getF('f-notes'), code:getF('f-code')||undefined
@@ -1419,48 +1456,70 @@ async function saveHood(){
   const {data}=await sb.from('neighborhoods').insert({name:nm,city_id:cid||null}).select().single();
   cache.hoods.push(data); loading(false); closeModal('mo-hood'); renderGroups(); toast('✅ Bairro criado!');
 }
+let expandedCities = new Set();
+function toggleCityExpand(cityId){
+  if(expandedCities.has(cityId)) expandedCities.delete(cityId);
+  else expandedCities.add(cityId);
+  renderGroups();
+}
 function renderGroups(){
   const c=document.getElementById('groups-tree'); if(!c) return;
   const hasAnything = cache.cities.length>0||cache.hoods.length>0||cache.groups.length>0;
   if(!hasAnything){c.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)">Crie uma cidade, depois bairros e grupos.</div>';return;}
   let html='';
-  // Cities with their hoods and groups
   cache.cities.forEach(city=>{
     const cityHoods=cache.hoods.filter(h=>h.city_id===city.id);
     const cityGroupsNoHood=cache.groups.filter(g=>g.city_id===city.id&&!g.neighborhood_id);
+    const totalGroups=cache.groups.filter(g=>g.city_id===city.id).length;
+    const totalAddrs=cache.addresses.filter(a=>{const g=cache.groups.find(x=>x.id===a.group_id);return g&&g.city_id===city.id;}).length;
+    const isExpanded=expandedCities.has(city.id);
     let inner='';
-    // Hoods under this city
-    cityHoods.forEach(hood=>{
-      const hgroups=cache.groups.filter(g=>g.neighborhood_id===hood.id);
-      inner+=`<div class="gt-hood-hd" style="display:flex;justify-content:space-between;align-items:center">
-        <span>🏘 ${hood.name} <span style="font-size:10px;color:var(--muted)">(${hgroups.length} grupo${hgroups.length!==1?'s':''})</span></span>
-        <button class="btn btn-d btn-sm" style="padding:2px 7px;font-size:10px" onclick="event.stopPropagation();delHood('${hood.id}')">✕</button>
-      </div>`;
-      if(hgroups.length>0) inner+=hgroups.map(g=>renderGroupRow(g)).join('');
-      else inner+=`<div style="padding:8px 40px;font-size:11px;color:var(--muted)">Nenhum grupo neste bairro.</div>`;
-    });
-    // Groups without hood in this city
-    if(cityGroupsNoHood.length>0){
-      inner+=`<div class="gt-hood-hd" style="font-size:11px;color:var(--muted)">Sem bairro definido</div>`;
-      inner+=cityGroupsNoHood.map(g=>renderGroupRow(g)).join('');
+    if(isExpanded){
+      cityHoods.forEach(hood=>{
+        const hgroups=cache.groups.filter(g=>g.neighborhood_id===hood.id);
+        inner+=`<div class="gt-hood-hd" style="display:flex;justify-content:space-between;align-items:center">
+          <span>🏘 ${hood.name} <span style="font-size:10px;opacity:.7">${hgroups.length} grupo${hgroups.length!==1?'s':''}</span></span>
+          <button class="btn btn-d btn-sm" style="padding:2px 7px;font-size:10px" onclick="event.stopPropagation();delHood('${hood.id}')">✕</button>
+        </div>`;
+        if(hgroups.length>0) inner+=hgroups.map(g=>renderGroupRow(g)).join('');
+        else inner+=`<div style="padding:7px 40px;font-size:11px;color:var(--muted)">Nenhum grupo neste bairro.</div>`;
+      });
+      if(cityGroupsNoHood.length>0){
+        inner+=`<div class="gt-hood-hd" style="font-size:11px;color:var(--muted)">Sem bairro</div>`;
+        inner+=cityGroupsNoHood.map(g=>renderGroupRow(g)).join('');
+      }
+      if(!inner) inner=`<div style="padding:10px 16px;font-size:11px;color:var(--muted)">Nenhum bairro ou grupo cadastrado.</div>`;
     }
-    if(!inner) inner=`<div style="padding:10px 16px;font-size:11px;color:var(--muted)">Nenhum bairro ou grupo nesta cidade.</div>`;
-    html+=`<div class="gt-city"><div class="gt-city-hd"><span>🏙 ${city.name} <span style="font-weight:400;font-size:11px;opacity:.7">(${cityHoods.length} bairro${cityHoods.length!==1?'s':''})</span></span><button class="btn btn-d btn-sm" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:3px 8px" onclick="event.stopPropagation();delCity('${city.id}')">✕</button></div><div>${inner}</div></div>`;
+    html+=`<div class="gt-city">
+      <div class="gt-city-hd" onclick="toggleCityExpand('${city.id}')" style="cursor:pointer">
+        <span style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">${isExpanded?'▼':'▶'}</span>
+          <span>🏙 ${city.name}</span>
+          <span style="font-weight:400;font-size:11px;opacity:.7">${cityHoods.length} bairro${cityHoods.length!==1?'s':''} · ${totalGroups} grupo${totalGroups!==1?'s':''} · ${totalAddrs} end.</span>
+        </span>
+        <button class="btn btn-d btn-sm" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:3px 8px" onclick="event.stopPropagation();delCity('${city.id}')">✕</button>
+      </div>
+      ${isExpanded?`<div>${inner}</div>`:''}
+    </div>`;
   });
-  // Hoods without city
   const hoodsNoCity=cache.hoods.filter(h=>!h.city_id);
   if(hoodsNoCity.length>0){
+    const isExp=expandedCities.has('__noCity');
     let inner='';
-    hoodsNoCity.forEach(hood=>{
-      const hgroups=cache.groups.filter(g=>g.neighborhood_id===hood.id);
-      inner+=`<div class="gt-hood-hd" style="display:flex;justify-content:space-between"><span>🏘 ${hood.name}</span><button class="btn btn-d btn-sm" style="padding:2px 7px;font-size:10px" onclick="delHood('${hood.id}')">✕</button></div>`;
-      inner+=hgroups.map(g=>renderGroupRow(g)).join('');
-    });
-    html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted)">Bairros sem cidade</div><div>${inner}</div></div>`;
+    if(isExp){
+      hoodsNoCity.forEach(hood=>{
+        const hgroups=cache.groups.filter(g=>g.neighborhood_id===hood.id);
+        inner+=`<div class="gt-hood-hd" style="display:flex;justify-content:space-between"><span>🏘 ${hood.name}</span><button class="btn btn-d btn-sm" style="padding:2px 7px;font-size:10px" onclick="delHood('${hood.id}')">✕</button></div>`;
+        inner+=hgroups.map(g=>renderGroupRow(g)).join('');
+      });
+    }
+    html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted);cursor:pointer" onclick="toggleCityExpand('__noCity')"><span>${isExp?'▼':'▶'} Bairros sem cidade (${hoodsNoCity.length})</span></div>${isExp?`<div>${inner}</div>`:''}</div>`;
   }
-  // Groups without city or hood
   const noCity=cache.groups.filter(g=>!g.city_id&&!g.neighborhood_id);
-  if(noCity.length>0) html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted)">Grupos sem cidade/bairro</div><div>${noCity.map(g=>renderGroupRow(g)).join('')}</div></div>`;
+  if(noCity.length>0){
+    const isExp=expandedCities.has('__noGroup');
+    html+=`<div class="gt-city"><div class="gt-city-hd" style="background:var(--muted);cursor:pointer" onclick="toggleCityExpand('__noGroup')"><span>${isExp?'▼':'▶'} Grupos sem cidade/bairro (${noCity.length})</span></div>${isExp?`<div>${noCity.map(g=>renderGroupRow(g)).join('')}</div>`:''}</div>`;
+  }
   c.innerHTML=html||'<div style="text-align:center;padding:28px;color:var(--muted)">Nenhum item.</div>';
 }
 async function delHood(id){if(!confirm('Excluir bairro?'))return;await sb.from('neighborhoods').delete().eq('id',id);cache.hoods=cache.hoods.filter(h=>h.id!==id);cache.groups.forEach(g=>{if(g.neighborhood_id===id)g.neighborhood_id=null;});renderGroups();}
@@ -2030,7 +2089,14 @@ function getPubGeo(){if(!navigator.geolocation)return;navigator.geolocation.getC
 function maskCEP(el){el.value=el.value.replace(/\D/g,'').replace(/(\d{5})(\d)/,'$1-$2').slice(0,9);}
 async function fetchCEP(){
   const cep=getF('f-cep').replace(/\D/g,''); if(cep.length!==8) return;
-  try{const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);const d=await r.json();if(d.erro)return;setF('f-street',d.logradouro);setF('f-hood',d.bairro);setF('f-city',d.localidade);toast('✅ CEP preenchido!');}catch{toast('CEP não encontrado.');}
+  try{
+    const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);const d=await r.json();if(d.erro)return;
+    setF('f-street',d.logradouro);
+    // For city: try to match existing, else use text
+    populateAddrCitySelect(d.localidade);
+    populateAddrHoodSelect(d.localidade, d.bairro);
+    toast('✅ CEP preenchido!');
+  }catch{toast('CEP não encontrado.');}
 }
 function parseGMapsLink(){
   const v=getF('f-gmaps').trim(); if(!v) return;

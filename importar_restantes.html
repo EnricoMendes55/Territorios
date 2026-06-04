@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importador — 32 restantes</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+body{font-family:system-ui,sans-serif;max-width:600px;margin:40px auto;padding:20px;background:#f5f3ff;}
+.card{background:white;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(91,33,182,.1);}
+h1{color:#4a1590;font-size:20px;margin-bottom:4px;}
+p{color:#6b7280;font-size:14px;margin-bottom:20px;}
+.stat{display:flex;gap:16px;margin-bottom:20px;}
+.stat-item{background:#f5f3ff;border-radius:8px;padding:10px 16px;border-left:4px solid #8b5cf6;}
+.stat-n{font-size:22px;font-weight:800;color:#6d28d9;}
+.stat-l{font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;}
+button{background:#6d28d9;color:white;border:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;width:100%;}
+button:disabled{background:#a78bfa;cursor:not-allowed;}
+#log{margin-top:16px;background:#0f0a1e;color:#a78bfa;border-radius:8px;padding:14px;font-family:monospace;font-size:12px;max-height:300px;overflow-y:auto;display:none;}
+.success{color:#22c55e;} .error{color:#ef4444;} .info{color:#60a5fa;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔄 Importar 32 endereços restantes</h1>
+  <p>Os 150 primeiros já foram importados. Este arquivo importa os 32 que falharam por código duplicado — agora com códigos únicos corrigidos.</p>
+  <div class="stat">
+    <div class="stat-item"><div class="stat-n">32</div><div class="stat-l">Restantes</div></div>
+    <div class="stat-item"><div class="stat-n">150</div><div class="stat-l">Já importados</div></div>
+  </div>
+  <button onclick="runImport()" id="btn">🚀 Importar 32 restantes</button>
+  <div id="log"></div>
+</div>
+<script>
+const SUPA_URL = 'https://xpdazbhtxhmqdysnetid.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwZGF6Ymh0eGhtcWR5c25ldGlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMzgyMzQsImV4cCI6MjA5NTgxNDIzNH0.z3eWgM8wlYWFtgSlXcPLq2o0Huo5nfsy8AY4ulHXSGg';
+const sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+const ADDRESSES = [{"code": "152", "name": "152", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.1918564, "lng": -49.7980492, "status": "pending", "notes": "John Kennedy 732, Rio do Oeste, Santa Catarina, 89180-000"}, {"code": "153", "name": "153", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.1941569, "lng": -49.79194853, "status": "pending", "notes": "6 pessoa(s) — Prédio 2 pisos, próximo a loja da Sandra\nJohn Kennedy 41, Rio do Oeste, Santa Catarina, 89180-000"}, {"code": "154", "name": "154", "street": "Rua Gregorio de Souza 280, Rio do Oeste, Santa Catarina", "number": "89180", "neighborhood": "000", "city": "Rio do Sul", "lat": -27.2001868, "lng": -49.7963769, "status": "pending", "notes": ""}, {"code": "155", "name": "155", "street": "Rua Luís Pasteur 58, Rio do Sul, Santa Catarina", "number": "89160", "neighborhood": "000", "city": "Rio do Sul", "lat": -27.2262642, "lng": -49.6618041, "status": "pending", "notes": "3 pessoa(s) — Casa 2"}, {"code": "156", "name": "156", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.208494996726703, "lng": -49.64826788753271, "status": "pending", "notes": "4 pessoa(s) — R. Prefeito Wenceslau Borini, 414"}, {"code": "157", "name": "157", "street": "Rua Peroba 56, Rio do Sul, Santa Catarina", "number": "89164", "neighborhood": "192", "city": "Rio do Sul", "lat": -27.2236034, "lng": -49.6671895, "status": "pending", "notes": "6 pessoa(s)"}, {"code": "158", "name": "158", "street": "Rua Tarumã 50, Rio do Sul, Santa Catarina", "number": "89160", "neighborhood": "000", "city": "Rio do Sul", "lat": -27.2233316, "lng": -49.6679193, "status": "pending", "notes": "3 pessoa(s)"}, {"code": "159", "name": "159", "street": "Rua Jacó Finardi 1190, Rio do Sul, Santa Catarina", "number": "89163", "neighborhood": "089", "city": "Rio do Sul", "lat": -27.2062313, "lng": -49.6322759, "status": "pending", "notes": "11 pessoa(s)"}, {"code": "160", "name": "160", "street": "Rua Imperatriz Leopoldina 424, Rio do Sul, Santa Catarina", "number": "89164", "neighborhood": "090", "city": "Rio do Sul", "lat": -27.2199836, "lng": -49.6557682, "status": "pending", "notes": "8 pessoa(s)"}, {"code": "161", "name": "161", "street": "Rua Engenheiro Odebrecht", "number": "362", "neighborhood": "", "city": "Rio do Sul", "lat": -27.227173347481035, "lng": -49.66326344758272, "status": "pending", "notes": "5 pessoa(s)"}, {"code": "162", "name": "162", "street": "Rua Engenheiro Odebrecht 430, Rio do Sul, Santa Catarina", "number": "89160", "neighborhood": "000", "city": "Rio do Sul", "lat": -27.224987, "lng": -49.6623452, "status": "pending", "notes": "5 pessoa(s)"}, {"code": "164", "name": "164", "street": "Rua Massaranduba 48, Rio do Sul, Santa Catarina", "number": "89163", "neighborhood": "260", "city": "Rio do Sul", "lat": -27.2043124, "lng": -49.6403535, "status": "pending", "notes": "3 pessoa(s)"}, {"code": "165", "name": "165", "street": "Rua Massaranduba 122, Rio do Sul, Santa Catarina", "number": "89163", "neighborhood": "260", "city": "Rio do Sul", "lat": -27.2035885, "lng": -49.6403498, "status": "pending", "notes": "1 pessoa(s)"}, {"code": "1652", "name": "165", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.25264273329884, "lng": -49.692111276090145, "status": "pending", "notes": "3 pessoa(s) — Piso 2\nPuerta 6"}, {"code": "167", "name": "167", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.252582823394988, "lng": -49.68967851251364, "status": "pending", "notes": "3 pessoa(s)"}, {"code": "1672", "name": "167", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.252154213290975, "lng": -49.69023138284683, "status": "pending", "notes": "4 pessoa(s)"}, {"code": "168", "name": "168", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.24096654785707, "lng": -49.67564184218645, "status": "pending", "notes": "5 pessoa(s)"}, {"code": "169", "name": "169", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.242826914642084, "lng": -49.67556171119213, "status": "pending", "notes": "Casa 445"}, {"code": "170", "name": "170", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.24913217986872, "lng": -49.68533952400984, "status": "pending", "notes": ""}, {"code": "173", "name": "173", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.25393269999875, "lng": -49.69270509999822, "status": "pending", "notes": "Abajo 97 casa azul"}, {"code": "174", "name": "174", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.253865067127478, "lng": -49.6927871927619, "status": "pending", "notes": "Casa verde"}, {"code": "MARCAD", "name": "Marcador 171", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.259949115137186, "lng": -49.702417999506, "status": "pending", "notes": ""}, {"code": "MARCA2", "name": "Marcador 172", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.251293709438162, "lng": -49.68476504087448, "status": "pending", "notes": ""}, {"code": "MARCA3", "name": "Marcador 174", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.187271396290242, "lng": -49.809073358774185, "status": "pending", "notes": ""}, {"code": "MARCA4", "name": "Marcador 175", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.220654005675602, "lng": -49.65531639754772, "status": "pending", "notes": ""}, {"code": "MARCA5", "name": "Marcador 176", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.220378221382756, "lng": -49.655200727283955, "status": "pending", "notes": ""}, {"code": "MARCA6", "name": "Marcador 177", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.220269994495336, "lng": -49.655214473605156, "status": "pending", "notes": ""}, {"code": "MARCA7", "name": "Marcador 178", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.220178165538687, "lng": -49.65577136725187, "status": "pending", "notes": ""}, {"code": "MARCA8", "name": "Marcador 179", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.219846849263554, "lng": -49.65644724483974, "status": "pending", "notes": ""}, {"code": "MARCA9", "name": "Marcador 180", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.219184738350226, "lng": -49.656548872590065, "status": "pending", "notes": "SULAY"}, {"code": "MARCA10", "name": "Marcador 181", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.219609897649214, "lng": -49.65552594512701, "status": "pending", "notes": ""}, {"code": "MARCA11", "name": "Marcador 182", "street": "", "number": "", "neighborhood": "", "city": "Rio do Sul", "lat": -27.219743467697082, "lng": -49.65512327849865, "status": "pending", "notes": ""}];
+
+function log(msg, cls='info') {
+  const el = document.getElementById('log');
+  el.style.display = 'block';
+  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function runImport() {
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  btn.textContent = 'Importando...';
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    log('❌ Não logado! Faça login no sistema principal primeiro.', 'error');
+    btn.disabled = false;
+    return;
+  }
+  log('✅ Logado: ' + session.user.email, 'success');
+
+  // Get group ID
+  const { data: group } = await sb.from('groups').select('id').eq('name','HISPÂNICOS').single();
+  if (!group) { log('❌ Grupo HISPÂNICOS não encontrado.', 'error'); return; }
+  log('✅ Grupo encontrado: ' + group.id, 'success');
+
+  const toInsert = ADDRESSES.map(a => ({
+    code: a.code,
+    name: a.name,
+    street: a.street || null,
+    number: a.number || null,
+    neighborhood: a.neighborhood || null,
+    city: a.city,
+    lat: a.lat,
+    lng: a.lng,
+    status: 'pending',
+    group_id: group.id,
+    notes: a.notes || null,
+  }));
+
+  log(`📥 Inserindo ${toInsert.length} endereços com códigos únicos...`);
+  
+  // Insert one by one to handle any remaining conflicts gracefully
+  let ok = 0, errs = 0;
+  for (const addr of toInsert) {
+    const { error } = await sb.from('addresses').insert(addr);
+    if (error) {
+      // If still duplicate, add timestamp suffix
+      if (error.message.includes('duplicate')) {
+        addr.code = addr.code.slice(0,4) + Math.random().toString(36).slice(2,4).toUpperCase();
+        const { error: e2 } = await sb.from('addresses').insert(addr);
+        if (e2) { log(`❌ ${addr.name}: ${e2.message}`, 'error'); errs++; }
+        else { log(`✅ ${addr.name} (código ajustado: ${addr.code})`, 'success'); ok++; }
+      } else {
+        log(`❌ ${addr.name}: ${error.message}`, 'error');
+        errs++;
+      }
+    } else {
+      log(`✅ ${addr.name}`, 'success');
+      ok++;
+    }
+  }
+
+  log('', '');
+  log(`✅ CONCLUÍDO! ${ok} importados, ${errs} erros.`, 'success');
+  log(`Total geral: ${150 + ok}/182 endereços no sistema.`, 'info');
+  btn.textContent = `✅ Concluído — ${ok} importados`;
+}
+</script>
+</body>
+</html>

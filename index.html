@@ -295,16 +295,19 @@ textarea{resize:vertical;min-height:70px;}
       <div class="fc" data-f="nogroup" onclick="setFilter(this,'nogroup')">Sem grupo</div>
       <div class="fc" data-f="novisit" onclick="setFilter(this,'novisit')">Sem visita</div>
     </div>
-    <div style="display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap">
+    <div style="display:flex;gap:7px;margin-bottom:7px;flex-wrap:wrap">
       <select id="addr-filter-city" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
         <option value="">Todas cidades</option>
       </select>
       <select id="addr-filter-hood" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
         <option value="">Todos bairros</option>
       </select>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap">
       <select id="addr-filter-group" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
         <option value="">Todos grupos</option>
       </select>
+      <input type="text" id="addr-filter-street" placeholder="Filtrar por rua..." oninput="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
     </div>
     <div style="display:flex;gap:7px;margin-bottom:10px">
       <select id="addr-sort" onchange="renderAddresses()" style="flex:1;font-size:12px">
@@ -374,8 +377,16 @@ textarea{resize:vertical;min-height:70px;}
       <div class="card-bd">
         <div class="fr"><label class="lbl">Descrição (para identificar)</label><input type="text" id="sh-label" placeholder="Ex: João — Grupo Centro"></div>
       <div id="sh-smart-search-wrap" style="display:none" class="fr">
-        <label class="lbl">Busca inteligente de endereços</label>
-        <input type="text" id="sh-smart-search" placeholder="Buscar por nome, rua, bairro, cidade..." oninput="renderShareManual()">
+        <div style="display:flex;gap:7px;margin-bottom:7px;flex-wrap:wrap">
+          <select id="sh-filter-city" onchange="onShareCityChange()" style="flex:1;font-size:12px">
+            <option value="">Todas cidades</option>
+          </select>
+          <select id="sh-filter-hood" onchange="renderShareManual()" style="flex:1;font-size:12px">
+            <option value="">Todos bairros</option>
+          </select>
+        </div>
+        <input type="text" id="sh-smart-search" placeholder="Buscar por nome, rua..." oninput="renderShareManual()" style="margin-bottom:7px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Os endereços aparecem agrupados por rua.</div>
       </div>
         <div class="fg2">
           <div class="fr"><label class="lbl">Tipo de filtro</label>
@@ -482,7 +493,10 @@ textarea{resize:vertical;min-height:70px;}
   <button class="btn btn-o btn-sm" onclick="addPersonForm(null)" style="margin-bottom:11px">+ Adicionar pessoa</button>
   <div class="sh">📋 Informações</div>
   <div class="fg2">
-    <div class="fr"><label class="lbl">Grupo</label><select id="f-group" onchange="onGroupChange()"><option value="">Sem grupo</option></select></div>
+    <div class="fr"><label class="lbl">Grupos (pode selecionar vários)</label>
+      <div id="f-groups-container" style="background:var(--bg);border-radius:8px;padding:8px;border:1.5px solid var(--border);max-height:160px;overflow-y:auto"></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">Marque todos os grupos deste endereço. O primeiro grupo marcado define cidade/bairro automaticamente.</div>
+    </div>
     <div class="fr"><label class="lbl">Status</label>
       <select id="f-status">
         <option value="pending">Não visitado</option><option value="revisit">Revisita</option>
@@ -745,7 +759,7 @@ if (window.location.protocol === 'file:') {
 // =============================================
 let currentUser = null;
 let userRole = 'elder';
-let cache = { addresses:[], groups:[], cities:[], hoods:[], events:[], censusStreets:[], censusSessions:[], shareLinks:[], pendingChanges:[], photos:{}, people:{}, visits:{}, eventInvites:[] };
+let cache = { addresses:[], groups:[], cities:[], hoods:[], events:[], censusStreets:[], censusSessions:[], shareLinks:[], pendingChanges:[], photos:{}, people:{}, visits:{}, eventInvites:[], addressGroups:{} };
 let mainMap = null;
 let pubMap = null;
 let pubToken = null;
@@ -900,12 +914,13 @@ async function loadAllData() {
     // Load people and visits for all addresses
     if (cache.addresses.length > 0) {
       const ids = cache.addresses.map(a => a.id);
-      const [ppl, vis, pho, invites, sessions] = await Promise.all([
+      const [ppl, vis, pho, invites, sessions, addrGroups] = await Promise.all([
         sb.from('people').select('*').in('address_id', ids),
         sb.from('visits').select('*').in('address_id', ids).order('visit_date'),
         sb.from('photos').select('id,address_id,data').in('address_id', ids),
         sb.from('event_invites').select('*'),
         sb.from('census_sessions').select('*').order('started_at'),
+        sb.from('address_groups').select('*').in('address_id', ids),
       ]);
       cache.people = {};
       (ppl.data||[]).forEach(p => { if(!cache.people[p.address_id]) cache.people[p.address_id]=[]; cache.people[p.address_id].push(p); });
@@ -915,6 +930,12 @@ async function loadAllData() {
       (pho.data||[]).forEach(p => { if(!cache.photos[p.address_id]) cache.photos[p.address_id]=[]; cache.photos[p.address_id].push(p.data); });
       cache.eventInvites = invites.data || [];
       cache.censusSessions = sessions.data || [];
+      // address_groups: map address_id -> [group_id, ...]
+      cache.addressGroups = {};
+      (addrGroups.data||[]).forEach(ag => {
+        if(!cache.addressGroups[ag.address_id]) cache.addressGroups[ag.address_id]=[];
+        cache.addressGroups[ag.address_id].push(ag.group_id);
+      });
     }
   } catch(e) { toast('Erro ao carregar dados: ' + e.message); }
   loading(false);
@@ -1077,12 +1098,17 @@ function populateAddrFilters(){
   const gf=document.getElementById('addr-filter-group');
   if(!cf||!hf||!gf) return;
   const cv=cf.value, hv=hf.value, gv=gf.value;
-  // Cities from actual addresses
-  const cities=[...new Set(cache.addresses.map(a=>a.city).filter(Boolean))].sort();
-  cf.innerHTML='<option value="">Todas cidades</option>'+cities.map(c=>`<option value="${c}" ${cv===c?'selected':''}>${c}</option>`).join('');
-  // Hoods filtered by city
-  const hoods=[...new Set(cache.addresses.filter(a=>!cv||a.city===cv).map(a=>a.neighborhood).filter(Boolean))].sort();
-  hf.innerHTML='<option value="">Todos bairros</option>'+hoods.map(h=>`<option value="${h}" ${hv===h?'selected':''}>${h}</option>`).join('');
+  // Cities: use city_id if available, fallback to city text
+  const usedCityIds=[...new Set(cache.addresses.map(a=>a.city_id).filter(Boolean))];
+  const usedCityNames=[...new Set(cache.addresses.filter(a=>!a.city_id).map(a=>a.city).filter(Boolean))];
+  cf.innerHTML='<option value="">Todas cidades</option>'+
+    cache.cities.filter(c=>usedCityIds.includes(c.id)).map(c=>`<option value="${c.id}" ${cv===c.id?'selected':''}>${c.name}</option>`).join('')+
+    usedCityNames.map(n=>`<option value="txt:${n}" ${cv===`txt:${n}`?'selected':''}>${n}</option>`).join('');
+  // Hoods: filter by city_id
+  const cityId=cv&&!cv.startsWith('txt:')?cv:null;
+  const usedHoodIds=[...new Set(cache.addresses.filter(a=>!cityId||a.city_id===cityId).map(a=>a.neighborhood_id).filter(Boolean))];
+  const hoodsForCity=cityId?cache.hoods.filter(h=>h.city_id===cityId&&usedHoodIds.includes(h.id)):cache.hoods.filter(h=>usedHoodIds.includes(h.id));
+  hf.innerHTML='<option value="">Todos bairros</option>'+hoodsForCity.map(h=>`<option value="${h.id}" ${hv===h.id?'selected':''}>${h.name}</option>`).join('');
   // Groups
   gf.innerHTML='<option value="">Todos grupos</option>'+cache.groups.map(g=>`<option value="${g.id}" ${gv===g.id?'selected':''}>${g.icon} ${g.name}</option>`).join('');
 }
@@ -1093,16 +1119,28 @@ function renderAddresses() {
   const cityF = getF('addr-filter-city');
   const hoodF = getF('addr-filter-hood');
   const groupF = getF('addr-filter-group');
+  const streetF = (getF('addr-filter-street')||'').toLowerCase();
   const sortV = getF('addr-sort') || 'name';
   let list = cache.addresses.filter(a => {
     const ppl = (cache.people[a.id]||[]).map(p=>p.nationality+' '+p.name).join(' ');
     const match = [a.name,a.street,a.neighborhood,a.city,a.code,ppl].filter(Boolean).join(' ').toLowerCase().includes(q);
     if (!match) return false;
-    if (cityF && a.city !== cityF) return false;
-    if (hoodF && a.neighborhood !== hoodF) return false;
-    if (groupF && a.group_id !== groupF) return false;
+    // City filter: support both city_id and text fallback
+    if (cityF) {
+      if(cityF.startsWith('txt:')){ if(a.city!==(cityF.slice(4))) return false; }
+      else { if(a.city_id!==cityF && !(a.city_id===null && a.city===cache.cities.find(c=>c.id===cityF)?.name)) return false; }
+    }
+    // Hood filter by hood_id
+    if (hoodF && a.neighborhood_id !== hoodF) return false;
+    // Group filter: check address_groups multi-group
+    if (groupF) {
+      const grps = cache.addressGroups[a.id] || (a.group_id?[a.group_id]:[]);
+      if (!grps.includes(groupF)) return false;
+    }
+    // Street filter
+    if (streetF && !(a.street||'').toLowerCase().includes(streetF)) return false;
     if (curFilter==='all') return true;
-    if (curFilter==='nogroup') return !a.group_id;
+    if (curFilter==='nogroup') return !a.group_id && !(cache.addressGroups[a.id]?.length>0);
     if (curFilter==='novisit') return !(cache.visits[a.id]&&cache.visits[a.id].length>0);
     return a.status===curFilter;
   });
@@ -1141,7 +1179,7 @@ function renderAddrList(list) {
         ${pct>0?`<span class="tag t-blue">👥 ${pct}</span>`:''}
         ${(cache.people[a.id]||[]).some(p=>p.is_revisit)?`<span class="tag t-amber">🔄 Revisita</span>`:''}
         ${(cache.people[a.id]||[]).some(p=>p.is_student)?`<span class="tag t-green">📖 Estudante</span>`:''}
-        ${g?`<span class="tag t-purple">${g.name}</span>`:''}
+        ${(()=>{const gids=cache.addressGroups[a.id]||(a.group_id?[a.group_id]:[]);return gids.slice(0,3).map(gid=>{const grp=cache.groups.find(x=>x.id===gid);return grp?`<span class="tag t-purple">${grp.name}</span>`:''}).join('');})()}
         ${lastV?`<span class="tag t-gray">📅 ${fdate(lastV)}</span>`:''}
       </div>
     </div>`;
@@ -1168,7 +1206,7 @@ function showDetail(id) {
     <div class="dr"><span class="dl">Bairro / Cidade</span><span class="dv">${[a.neighborhood,a.city].filter(Boolean).join(', ')||'—'}</span></div>
     <div class="dr"><span class="dl">Complemento</span><span class="dv">${a.complement||'—'}</span></div>
     <div class="dr"><span class="dl">Status</span><span class="dv">${STATUS_ICON[a.status]} ${STATUS_LABEL[a.status]||a.status}</span></div>
-    <div class="dr"><span class="dl">Grupo</span><span class="dv">${g?g.icon+' '+g.name:'—'}</span></div>
+    <div class="dr"><span class="dl">Grupos</span><span class="dv">${(()=>{const gids=cache.addressGroups[id]||(a.group_id?[a.group_id]:[]);if(!gids.length)return'—';return gids.map(gid=>{const gr=cache.groups.find(x=>x.id===gid);return gr?gr.icon+' '+gr.name:'?';}).join(', ');})()}</span></div>
     <div class="dr"><span class="dl">Melhor horário</span><span class="dv">${a.best_time||'—'}</span></div>
     <div class="dr"><span class="dl">Última publicação</span><span class="dv">${a.last_pub||'—'}</span></div>
     ${evLinks.length>0?`<div class="dr"><span class="dl">Eventos</span><span class="dv">${evLinks.map(e=>`<span class="tag t-purple">✉️ ${e.name}</span>`).join(' ')}</span></div>`:''}
@@ -1188,38 +1226,57 @@ function showDetail(id) {
 // =============================================
 // SAVE ADDRESS
 // =============================================
-function populateAddrCitySelect(selectedCity){
-  const sel=document.getElementById('f-city'); if(!sel) return;
-  const cities=[...new Set(cache.cities.map(c=>c.name))].sort();
-  sel.innerHTML='<option value="">Selecione a cidade</option>'+cities.map(c=>`<option value="${c}" ${c===selectedCity?'selected':''}>${c}</option>`).join('');
+function populateAddrCitySelect(selectedCityId){
+  const sel=document.getElementById('f-city-id'); if(!sel) return;
+  sel.innerHTML='<option value="">Selecione a cidade</option>'+
+    cache.cities.map(c=>`<option value="${c.id}" ${c.id===selectedCityId?'selected':''}>${c.name}</option>`).join('');
 }
-function populateAddrHoodSelect(cityName, selectedHood){
-  const sel=document.getElementById('f-hood'); if(!sel) return;
-  // Filter hoods by city
-  const city=cache.cities.find(c=>c.name===cityName);
-  let hoods=[];
-  if(city) hoods=cache.hoods.filter(h=>h.city_id===city.id).map(h=>h.name).sort();
-  else hoods=cache.hoods.map(h=>h.name).sort();
-  sel.innerHTML='<option value="">Selecione o bairro</option>'+hoods.map(h=>`<option value="${h}" ${h===selectedHood?'selected':''}>${h}</option>`).join('');
+function populateAddrHoodSelect(cityId, selectedHoodId){
+  const sel=document.getElementById('f-hood-id'); if(!sel) return;
+  const hoods=cityId ? cache.hoods.filter(h=>h.city_id===cityId) : cache.hoods;
+  sel.innerHTML='<option value="">Selecione o bairro</option>'+
+    hoods.map(h=>`<option value="${h.id}" ${h.id===selectedHoodId?'selected':''}>${h.name}</option>`).join('');
 }
 function onAddrCityChange(){
-  const city=getF('f-city');
-  populateAddrHoodSelect(city,'');
+  const cityId=getF('f-city-id');
+  populateAddrHoodSelect(cityId,'');
 }
-function onGroupChange(){
-  const gid=getF('f-group'); if(!gid) return;
+function populateGroupsContainer(selectedGroupIds){
+  const c=document.getElementById('f-groups-container'); if(!c) return;
+  if(cache.groups.length===0){c.innerHTML='<div style="font-size:12px;color:var(--muted)">Nenhum grupo cadastrado.</div>';return;}
+  // Group by city
+  const byCityHtml = cache.cities.map(city=>{
+    const cityGroups=cache.groups.filter(g=>g.city_id===city.id);
+    if(cityGroups.length===0) return '';
+    return `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:5px 0 3px">${city.name}</div>`+
+      cityGroups.map(g=>`<label style="display:flex;align-items:center;gap:7px;padding:4px 0;cursor:pointer;font-size:13px">
+        <input type="checkbox" class="g-chk" value="${g.id}" ${selectedGroupIds.includes(g.id)?'checked':''} onchange="onGroupCheckChange()" style="width:15px;height:15px;accent-color:var(--p600)">
+        ${g.icon} ${g.name}
+      </label>`).join('');
+  }).join('');
+  const noCity=cache.groups.filter(g=>!g.city_id);
+  const noCityHtml=noCity.length>0?`<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:5px 0 3px">Sem cidade</div>`+
+    noCity.map(g=>`<label style="display:flex;align-items:center;gap:7px;padding:4px 0;cursor:pointer;font-size:13px">
+      <input type="checkbox" class="g-chk" value="${g.id}" ${selectedGroupIds.includes(g.id)?'checked':''} onchange="onGroupCheckChange()" style="width:15px;height:15px;accent-color:var(--p600)">
+      ${g.icon} ${g.name}
+    </label>`).join(''):'';
+  c.innerHTML=byCityHtml+noCityHtml;
+}
+function onGroupCheckChange(){
+  // Auto-fill city/hood from first checked group
+  const first=document.querySelector('.g-chk:checked');
+  if(!first) return;
+  const gid=first.value;
   const group=cache.groups.find(g=>g.id===gid); if(!group) return;
-  // Find city name
-  const city=cache.cities.find(c=>c.id===group.city_id);
-  const hood=cache.hoods.find(h=>h.id===group.neighborhood_id);
-  if(city){
-    populateAddrCitySelect(city.name);
-    populateAddrHoodSelect(city.name, hood?.name||'');
-  } else if(hood){
-    populateAddrHoodSelect('', hood.name);
+  if(group.city_id){
+    populateAddrCitySelect(group.city_id);
+    setF('f-city-id',group.city_id);
+    populateAddrHoodSelect(group.city_id, group.neighborhood_id||'');
+    if(group.neighborhood_id) setF('f-hood-id',group.neighborhood_id);
   }
-  if(city) setF('f-city',city.name);
-  if(hood) setF('f-hood',hood.name);
+}
+function getSelectedGroupIds(){
+  return [...document.querySelectorAll('.g-chk:checked')].map(el=>el.value);
 }
 function showAddressModal(id) {
   editPhotosLocal=[]; editVisitsLocal=[]; pCount=0;
@@ -1228,8 +1285,7 @@ function showAddressModal(id) {
   document.getElementById('visits-log').innerHTML='';
   document.getElementById('add-visit-form').style.display='none';
   ['f-name','f-street','f-number','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps','f-code'].forEach(i=>setF(i,''));
-  setF('f-status','pending'); setF('f-group','');
-  updateGroupSelect('f-group');
+  setF('f-status','pending');
   populateAddrCitySelect('');
   populateAddrHoodSelect('','');
   if (id) {
@@ -1239,10 +1295,17 @@ function showAddressModal(id) {
     setF('ei',id); setF('f-name',a.name); setF('f-street',a.street); setF('f-number',a.number);
     setF('f-comp',a.complement); setF('f-lat',a.lat); setF('f-lng',a.lng); setF('f-notes',a.notes);
     setF('f-besttime',a.best_time); setF('f-lastpub',a.last_pub); setF('f-code',a.code);
-    setF('f-status',a.status); setF('f-group',a.group_id||'');
-    // Populate city/hood selects with current values
-    populateAddrCitySelect(a.city||'');
-    populateAddrHoodSelect(a.city||'', a.neighborhood||'');
+    setF('f-status',a.status);
+    // City/hood by ID
+    const cityId = a.city_id || (cache.cities.find(c=>c.name===a.city)?.id||'');
+    const hoodId = a.neighborhood_id || (cache.hoods.find(h=>h.name===a.neighborhood&&h.city_id===cityId)?.id||'');
+    populateAddrCitySelect(cityId);
+    setF('f-city-id', cityId);
+    populateAddrHoodSelect(cityId, hoodId);
+    setF('f-hood-id', hoodId);
+    // Multi-group
+    const selGroups = cache.addressGroups[id] || (a.group_id?[a.group_id]:[]);
+    populateGroupsContainer(selGroups);
     (cache.people[id]||[]).forEach(p=>addPersonForm(p));
     editVisitsLocal = [...(cache.visits[id]||[])];
     renderVisitsForm();
@@ -1254,6 +1317,7 @@ function showAddressModal(id) {
     setF('ei','');
     setF('vf-date', new Date().toISOString().slice(0,10));
     setF('vf-time', new Date().toTimeString().slice(0,5));
+    populateGroupsContainer([]);
   }
   document.getElementById('mo-addr').style.display='flex';
 }
@@ -1293,11 +1357,22 @@ async function saveAddress() {
   loading(true, 'Salvando...');
   try {
     const id = getF('ei') || null;
+    const cityId = getF('f-city-id') || null;
+    const hoodId = getF('f-hood-id') || null;
+    const city = cache.cities.find(c=>c.id===cityId);
+    const hood = cache.hoods.find(h=>h.id===hoodId);
+    const selectedGroupIds = getSelectedGroupIds();
+    const firstGroupId = selectedGroupIds[0] || null;
     const addrData = {
-      name:nm, street:getF('f-street'), number:getF('f-number'), neighborhood:getF('f-hood')||null,
-      city:getF('f-city')||null, complement:getF('f-comp'), lat:parseFloat(getF('f-lat'))||null,
+      name:nm, street:getF('f-street'), number:getF('f-number'),
+      neighborhood: hood?.name || null,
+      neighborhood_id: hoodId,
+      city: city?.name || null,
+      city_id: cityId,
+      complement:getF('f-comp'), lat:parseFloat(getF('f-lat'))||null,
       lng:parseFloat(getF('f-lng'))||null, status:getF('f-status'),
-      group_id:getF('f-group')||null, best_time:getF('f-besttime'), last_pub:getF('f-lastpub'),
+      group_id: firstGroupId,
+      best_time:getF('f-besttime'), last_pub:getF('f-lastpub'),
       notes:getF('f-notes'), code:getF('f-code')||undefined
     };
     let addressId = id;
@@ -1310,6 +1385,13 @@ async function saveAddress() {
       addressId = data.id;
       cache.addresses.push(data);
     }
+    // Save address_groups (multi-group)
+    await sb.from('address_groups').delete().eq('address_id', addressId);
+    if(selectedGroupIds.length>0){
+      await sb.from('address_groups').insert(selectedGroupIds.map(gid=>({address_id:addressId,group_id:gid})));
+    }
+    // Update local cache
+    cache.addressGroups[addressId] = selectedGroupIds;
     // Save people
     await sb.from('people').delete().eq('address_id', addressId);
     const pplData = [];
@@ -1907,20 +1989,64 @@ function updateShareUI(){
   else if(type==='city'){vlbl.textContent='Cidade';vsel.innerHTML=cache.cities.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');}
   else if(type==='status'){vlbl.textContent='Status';vsel.innerHTML=Object.entries(STATUS_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');}
 }
+function onShareCityChange(){
+  const cityId=getF('sh-filter-city');
+  const hs=document.getElementById('sh-filter-hood'); if(!hs) return;
+  const hoods=cityId?cache.hoods.filter(h=>h.city_id===cityId):cache.hoods;
+  const usedHoodIds=[...new Set(cache.addresses.map(a=>a.neighborhood_id).filter(Boolean))];
+  hs.innerHTML='<option value="">Todos bairros</option>'+hoods.filter(h=>usedHoodIds.includes(h.id)).map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
+  renderShareManual();
+}
 function renderShareManual(){
+  const sw=document.getElementById('sh-smart-search-wrap');
+  if(sw&&sw.style.display!=='none'){
+    // Populate city filter if not yet
+    const cf=document.getElementById('sh-filter-city');
+    if(cf&&cf.options.length<=1){
+      const usedCityIds=[...new Set(cache.addresses.map(a=>a.city_id).filter(Boolean))];
+      cf.innerHTML='<option value="">Todas cidades</option>'+cache.cities.filter(c=>usedCityIds.includes(c.id)).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+    }
+  }
   const c=document.getElementById('sh-manual'); if(!c) return;
   const q=(getF('sh-smart-search')||'').toLowerCase();
-  const filtered=cache.addresses.filter(a=>{
+  const cityF=getF('sh-filter-city');
+  const hoodF=getF('sh-filter-hood');
+  let filtered=cache.addresses.filter(a=>{
+    if(cityF && a.city_id!==cityF) return false;
+    if(hoodF && a.neighborhood_id!==hoodF) return false;
     if(!q) return true;
     return [a.name,a.street,a.neighborhood,a.city,a.code].filter(Boolean).join(' ').toLowerCase().includes(q);
   });
   const selCount=shSelectedIds2.size;
-  c.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:7px;display:flex;justify-content:space-between"><span>${filtered.length} endereço${filtered.length!==1?'s':''} encontrado${filtered.length!==1?'s':''}</span><span style="color:var(--p600);font-weight:700">${selCount} selecionado${selCount!==1?'s':''}</span></div>`+
-  filtered.map(a=>`<div class="addr-sel ${shSelectedIds2.has(a.id)?'selected':''}" onclick="toggleShSel2('${a.id}',this)">
-    <div class="addr-sel-chk">${shSelectedIds2.has(a.id)?'✓':''}</div>
-    <div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div>
-    <div style="font-size:11px;color:var(--muted)">${[a.street,a.number,a.neighborhood,a.city].filter(Boolean).join(', ')||'—'}</div></div>
-  </div>`).join('');
+  // Group by street
+  const byStreet={};
+  filtered.forEach(a=>{const k=a.street||'Sem rua';if(!byStreet[k])byStreet[k]=[];byStreet[k].push(a);});
+  const streets=Object.keys(byStreet).sort();
+  c.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:7px;display:flex;justify-content:space-between;align-items:center">
+    <span>${filtered.length} endereço${filtered.length!==1?'s':''}</span>
+    <span style="color:var(--p600);font-weight:700">${selCount} selecionado${selCount!==1?'s':''}</span>
+  </div>`+streets.map(street=>{
+    const addrs=byStreet[street];
+    const allSel=addrs.every(a=>shSelectedIds2.has(a.id));
+    return`<div style="margin-bottom:6px">
+      <div style="font-size:11px;font-weight:700;color:var(--p700);padding:5px 8px;background:var(--p50);border-radius:6px;display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+        <span>🛣 ${street} (${addrs.length})</span>
+        <button class="btn btn-o btn-sm" style="font-size:10px;padding:2px 8px" onclick="toggleStreetSel(${JSON.stringify(addrs.map(a=>a.id)).replace(/"/g,"'")},${allSel})">${allSel?'Desmarcar':'Selecionar'} tudo</button>
+      </div>
+      ${addrs.map(a=>`<div class="addr-sel ${shSelectedIds2.has(a.id)?'selected':''}" onclick="toggleShSel2('${a.id}',this)" style="margin-bottom:3px">
+        <div class="addr-sel-chk">${shSelectedIds2.has(a.id)?'✓':''}</div>
+        <div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div>
+        <div style="font-size:11px;color:var(--muted)">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</div></div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+function toggleStreetSel(ids,allSel){
+  ids.forEach(id=>{
+    if(allSel) shSelectedIds2.delete(id);
+    else shSelectedIds2.add(id);
+  });
+  renderShareManual();
 }
 function toggleShSel2(id,el){
   if(shSelectedIds2.has(id)){shSelectedIds2.delete(id);el.classList.remove('selected');el.querySelector('.addr-sel-chk').textContent='';}
@@ -1948,9 +2074,12 @@ function cpyLink(){navigator.clipboard.writeText(getF('sh-link-out')).then(()=>t
 function waShare(){const url=encodeURIComponent('📖 Territórios Bíblicos\n'+getF('sh-link-out'));window.open('https://wa.me/?text='+url,'_blank');}
 function getShareLinkAddresses(l){
   if(l.filter_type==='custom') return cache.addresses.filter(a=>l.address_ids&&l.address_ids.includes(a.id));
-  if(l.filter_type==='group') return cache.addresses.filter(a=>a.group_id===l.filter_value);
-  if(l.filter_type==='city') return cache.addresses.filter(a=>a.city===l.filter_value);
-  if(l.filter_type==='neighborhood') return cache.addresses.filter(a=>a.neighborhood===l.filter_value);
+  if(l.filter_type==='group') return cache.addresses.filter(a=>{
+    const grps=cache.addressGroups[a.id]||(a.group_id?[a.group_id]:[]);
+    return grps.includes(l.filter_value);
+  });
+  if(l.filter_type==='city') return cache.addresses.filter(a=>a.city_id===l.filter_value||a.city===cache.cities.find(c=>c.id===l.filter_value)?.name);
+  if(l.filter_type==='neighborhood') return cache.addresses.filter(a=>a.neighborhood_id===l.filter_value);
   if(l.filter_type==='status') return cache.addresses.filter(a=>a.status===l.filter_value);
   return cache.addresses;
 }

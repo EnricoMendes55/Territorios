@@ -375,34 +375,41 @@ textarea{resize:vertical;min-height:70px;}
     <div class="card">
       <div class="card-hd"><h3>🔗 Gerar Link para Publicador</h3></div>
       <div class="card-bd">
-        <div class="fr"><label class="lbl">Descrição (para identificar)</label><input type="text" id="sh-label" placeholder="Ex: João — Grupo Centro"></div>
-      <div id="sh-smart-search-wrap" style="display:none" class="fr">
-        <div style="display:flex;gap:7px;margin-bottom:7px;flex-wrap:wrap">
-          <select id="sh-filter-city" onchange="onShareCityChangeManual()" style="flex:1;font-size:12px">
+        <div class="fr"><label class="lbl">Descrição do link</label>
+          <input type="text" id="sh-label" placeholder="Ex: João — Barragem"></div>
+
+        <div class="fr"><label class="lbl">Cidade</label>
+          <select id="sh-city" onchange="onShareCityChange()" style="font-size:14px">
             <option value="">Selecione a cidade...</option>
           </select>
-          <select id="sh-filter-hood" onchange="renderShareManual()" style="flex:1;font-size:12px">
-            <option value="">Todos bairros</option>
+        </div>
+
+        <div id="sh-hood-wrap" style="display:none" class="fr">
+          <label class="lbl">Bairro</label>
+          <select id="sh-hood" onchange="onShareHoodChange()" style="font-size:14px">
+            <option value="">Selecione o bairro...</option>
           </select>
         </div>
-        <input type="text" id="sh-smart-search" placeholder="Buscar por nome, rua..." oninput="renderShareManual()" style="margin-bottom:7px">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Os endereços aparecem agrupados por rua.</div>
-      </div>
-        <div class="fg2">
-          <div class="fr"><label class="lbl">Tipo de filtro</label>
-            <select id="sh-type" onchange="updateShareUI()">
-              <option value="group">Grupo</option>
-              <option value="neighborhood">Bairro</option>
-              <option value="city">Cidade</option>
-              <option value="status">Status</option>
-              <option value="custom">Seleção manual</option>
-            </select>
-          </div>
-          <div class="fr" id="sh-val-wrap"><label class="lbl" id="sh-val-lbl">Grupo</label>
-            <select id="sh-val"></select>
-          </div>
+
+        <div id="sh-group-wrap" style="display:none" class="fr">
+          <label class="lbl">Filtrar por grupo (opcional)</label>
+          <select id="sh-group-filter" onchange="renderShareAddresses()" style="font-size:14px">
+            <option value="">Todos os grupos</option>
+          </select>
         </div>
-        <div id="sh-manual" style="display:none;max-height:280px;overflow-y:auto;margin-bottom:10px"></div>
+
+        <div id="sh-addr-wrap" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+            <label class="lbl" style="margin:0">Selecionar endereços</label>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-o btn-sm" onclick="shareSelectAll(true)">✓ Todos</button>
+              <button class="btn btn-o btn-sm" onclick="shareSelectAll(false)">✕ Nenhum</button>
+            </div>
+          </div>
+          <div id="sh-manual" style="max-height:320px;overflow-y:auto;margin-bottom:10px;border:1.5px solid var(--border);border-radius:9px;padding:6px"></div>
+          <div style="font-size:12px;color:var(--p600);font-weight:700;margin-bottom:10px" id="sh-sel-count">0 selecionados</div>
+        </div>
+
         <button class="btn btn-p btn-full" onclick="createShareLink()">🔗 Gerar Link</button>
         <div id="sh-result" style="display:none" class="link-box">
           <div style="font-size:11px;font-weight:700;color:var(--p700);margin-bottom:5px">Link gerado — expira em 15 dias:</div>
@@ -1993,173 +2000,151 @@ async function toggleInvite(eid,aid,el){
 // =============================================
 let shSelectedIds2 = new Set();
 function renderSharePage(){
-  updateShareUI();
+  // Populate city dropdown from actual address data (city TEXT field)
+  const cities=[...new Set(cache.addresses.map(a=>a.city).filter(Boolean))].sort();
+  const cs=document.getElementById('sh-city');
+  if(cs){
+    cs.innerHTML='<option value="">Selecione a cidade...</option>'+
+      cities.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+  // Reset downstream
+  const hw=document.getElementById('sh-hood-wrap');
+  const gw=document.getElementById('sh-group-wrap');
+  const aw=document.getElementById('sh-addr-wrap');
+  if(hw) hw.style.display='none';
+  if(gw) gw.style.display='none';
+  if(aw) aw.style.display='none';
+  document.getElementById('sh-result').style.display='none';
   renderActiveLinks();
 }
-function updateShareUI(){
-  const type=getF('sh-type');
-  const vw=document.getElementById('sh-val-wrap');
-  const vlbl=document.getElementById('sh-val-lbl');
-  const vsel=document.getElementById('sh-val');
-  const manual=document.getElementById('sh-manual');
-  document.getElementById('sh-result').style.display='none';
-  if(type==='custom'){manual.style.display='block';vw.style.display='none';renderShareManual();}
-  else{manual.style.display='none';vw.style.display='';}
-  if(type==='group'){vlbl.textContent='Grupo';vsel.innerHTML=cache.groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');}
-  else if(type==='neighborhood'){vlbl.textContent='Bairro';vsel.innerHTML=cache.hoods.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');}
-  else if(type==='city'){vlbl.textContent='Cidade';vsel.innerHTML=cache.cities.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');}
-  else if(type==='status'){vlbl.textContent='Status';vsel.innerHTML=Object.entries(STATUS_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');}
-}
+
 function onShareCityChange(){
-  const cityId=getF('sh-filter-city');
-  const hs=document.getElementById('sh-filter-hood'); if(!hs) return;
-  const hoods=cityId?cache.hoods.filter(h=>h.city_id===cityId):cache.hoods;
-  const usedHoodIds=[...new Set(cache.addresses.map(a=>a.neighborhood_id).filter(Boolean))];
-  hs.innerHTML='<option value="">Todos bairros</option>'+hoods.filter(h=>usedHoodIds.includes(h.id)).map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
-  renderShareManual();
-}
-let expandedShareHoods = new Set();
-function onShareCityChangeManual(){
-  expandedShareHoods.clear();
-  onShareCityChange();
-}
-function renderShareManual(){
-  const sw=document.getElementById('sh-smart-search-wrap');
-  if(sw&&sw.style.display!=='none'){
-    const cf=document.getElementById('sh-filter-city');
-    if(cf&&cf.options.length<=1){
-      const usedCityIds=[...new Set(cache.addresses.map(a=>a.city_id).filter(Boolean))];
-      cf.innerHTML='<option value="">Selecione a cidade...</option>'+
-        cache.cities.filter(c=>usedCityIds.includes(c.id)).map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-    }
+  const city=getF('sh-city');
+  const hw=document.getElementById('sh-hood-wrap');
+  const gw=document.getElementById('sh-group-wrap');
+  const aw=document.getElementById('sh-addr-wrap');
+  const sr=document.getElementById('sh-result');
+  if(gw) gw.style.display='none';
+  if(aw) aw.style.display='none';
+  if(sr) sr.style.display='none';
+  shSelectedIds2.clear();
+  if(!city){ if(hw) hw.style.display='none'; return; }
+  // Get unique neighborhoods from addresses in this city (using text field)
+  const hoods=[...new Set(cache.addresses.filter(a=>a.city===city).map(a=>a.neighborhood).filter(Boolean))].sort();
+  const hs=document.getElementById('sh-hood');
+  if(hs){
+    hs.innerHTML='<option value="">Selecione o bairro...</option>'+
+      hoods.map(h=>`<option value="${h}">${h}</option>`).join('');
   }
+  if(hw) hw.style.display='block';
+}
+
+function onShareHoodChange(){
+  const city=getF('sh-city');
+  const hood=getF('sh-hood');
+  const gw=document.getElementById('sh-group-wrap');
+  const aw=document.getElementById('sh-addr-wrap');
+  const sr=document.getElementById('sh-result');
+  if(sr) sr.style.display='none';
+  shSelectedIds2.clear();
+  if(!hood){ if(gw) gw.style.display='none'; if(aw) aw.style.display='none'; return; }
+  // Get groups that have addresses in this city+hood
+  const addrsInHood=cache.addresses.filter(a=>a.city===city&&a.neighborhood===hood);
+  const groupIds=[...new Set(addrsInHood.flatMap(a=>{
+    const gids=cache.addressGroups[a.id]||(a.group_id?[a.group_id]:[]);
+    return gids;
+  }))];
+  const gs=document.getElementById('sh-group-filter');
+  if(gs){
+    const groupsHere=cache.groups.filter(g=>groupIds.includes(g.id));
+    gs.innerHTML='<option value="">Todos os grupos ('+addrsInHood.length+' end.)</option>'+
+      groupsHere.map(g=>`<option value="${g.id}">${g.icon} ${g.name} (${addrsInHood.filter(a=>(cache.addressGroups[a.id]||(a.group_id?[a.group_id]:[])).includes(g.id)).length} end.)</option>`).join('');
+    if(gw) gw.style.display=groupsHere.length>0?'block':'none';
+  }
+  // Select all by default
+  addrsInHood.forEach(a=>shSelectedIds2.add(a.id));
+  if(aw) aw.style.display='block';
+  renderShareAddresses();
+}
+
+function renderShareAddresses(){
+  const city=getF('sh-city');
+  const hood=getF('sh-hood');
+  const groupF=getF('sh-group-filter');
   const c=document.getElementById('sh-manual'); if(!c) return;
-  const q=(getF('sh-smart-search')||'').toLowerCase();
-  const cityF=getF('sh-filter-city');
-  const hoodF=getF('sh-filter-hood');
-  const selCount=shSelectedIds2.size;
-
-  // If no city selected, show prompt
-  if(!cityF){
-    c.innerHTML=`<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Selecione uma cidade para ver os bairros.</div>`;
-    return;
+  let addrs=cache.addresses.filter(a=>a.city===city&&a.neighborhood===hood);
+  if(groupF){
+    addrs=addrs.filter(a=>{
+      const gids=cache.addressGroups[a.id]||(a.group_id?[a.group_id]:[]);
+      return gids.includes(groupF);
+    });
   }
-
-  // Filter addresses
-  let allFiltered=cache.addresses.filter(a=>{
-    if(a.city_id!==cityF) return false;
-    if(q) return [a.name,a.street,a.neighborhood,a.city,a.code].filter(Boolean).join(' ').toLowerCase().includes(q);
-    return true;
+  // Group by street (text field)
+  const byStreet={};
+  addrs.forEach(a=>{
+    const k=a.street||'Sem rua definida';
+    if(!byStreet[k]) byStreet[k]=[];
+    byStreet[k].push(a);
   });
-
-  // Get hoods in this city that have addresses
-  const usedHoodIds=[...new Set(allFiltered.map(a=>a.neighborhood_id).filter(Boolean))];
-  const hoodsInCity=cache.hoods.filter(h=>h.city_id===cityF&&usedHoodIds.includes(h.id));
-  const noHoodAddrs=allFiltered.filter(a=>!a.neighborhood_id);
-
-  c.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:9px;display:flex;justify-content:space-between">
-    <span>${allFiltered.length} endereço${allFiltered.length!==1?'s':(allFiltered.length!==1?'s':'')} nesta cidade</span>
-    <span style="color:var(--p600);font-weight:700">${selCount} selecionado${selCount!==1?'s':''}</span>
-  </div>`+
-  // Render each hood as expandable
-  hoodsInCity.map(hood=>{
-    const hAddrs=allFiltered.filter(a=>a.neighborhood_id===hood.id);
-    const hSel=hAddrs.filter(a=>shSelectedIds2.has(a.id)).length;
-    const isExp=expandedShareHoods.has(hood.id)||hoodF===hood.id;
-    if(!isExp){
-      return`<div style="background:var(--card);border-radius:9px;padding:10px 13px;margin-bottom:5px;display:flex;align-items:center;gap:9px;cursor:pointer" onclick="expandShareHood('${hood.id}')">
-        <span style="font-size:16px">🏘</span>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:13px">${hood.name}</div>
-          <div style="font-size:11px;color:var(--muted)">${hAddrs.length} endereço${hAddrs.length!==1?'s':''}${hSel>0?` · <span style="color:var(--p600);font-weight:700">${hSel} selecionado${hSel!==1?'s':''}</span>`:''}</div>
-        </div>
-        <span style="color:var(--muted)">›</span>
-      </div>`;
-    }
-    // Expanded: show streets
-    const byStreet={};
-    hAddrs.forEach(a=>{const k=a.street||'Sem rua';if(!byStreet[k])byStreet[k]=[];byStreet[k].push(a);});
-    const streetList=Object.keys(byStreet).sort();
-    const allHoodSel=hAddrs.every(a=>shSelectedIds2.has(a.id));
-    return`<div style="background:var(--card);border-radius:9px;margin-bottom:5px;overflow:hidden">
-      <div style="padding:10px 13px;display:flex;align-items:center;gap:9px;background:var(--p50);cursor:pointer" onclick="collapseShareHood('${hood.id}')">
-        <span style="font-size:16px">🏘</span>
-        <div style="flex:1"><div style="font-weight:700;font-size:13px">${hood.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${hAddrs.length} end. · ${hSel} sel.</div></div>
-        <button class="btn btn-o btn-sm" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();toggleHoodAllSel('${hood.id}',${allHoodSel})">${allHoodSel?'Desmarcar tudo':'Selecionar tudo'}</button>
-        <span style="color:var(--muted)">▾</span>
+  const streets=Object.keys(byStreet).sort();
+  c.innerHTML=streets.map(street=>{
+    const sAddrs=byStreet[street];
+    const allSel=sAddrs.every(a=>shSelectedIds2.has(a.id));
+    return`<div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--p700);padding:5px 8px;background:var(--p50);border-radius:6px;display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+        <span>🛣 ${street} (${sAddrs.length})</span>
+        <button class="btn btn-o btn-sm" style="font-size:10px;padding:2px 7px" onclick="shareToggleStreet(${JSON.stringify(sAddrs.map(a=>a.id))},${allSel})">${allSel?'✕ Desmarcar':'✓ Selecionar'}</button>
       </div>
-      <div style="padding:8px">
-        ${streetList.map(street=>{
-          const addrs=byStreet[street];
-          const allSel=addrs.every(a=>shSelectedIds2.has(a.id));
-          return`<div style="margin-bottom:5px">
-            <div style="font-size:11px;font-weight:700;color:var(--p700);padding:4px 7px;background:var(--bg);border-radius:5px;display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
-              <span>🛣 ${street} (${addrs.length})</span>
-              <button class="btn btn-o btn-sm" style="font-size:10px;padding:2px 7px" onclick="toggleStreetSel(${JSON.stringify(addrs.map(a=>a.id)).replace(/"/g,"'")},${allSel})">${allSel?'✕':'✓'} tudo</button>
-            </div>
-            ${addrs.map(a=>`<div class="addr-sel ${shSelectedIds2.has(a.id)?'selected':''}" onclick="toggleShSel2('${a.id}',this)" style="margin-bottom:3px">
-              <div class="addr-sel-chk">${shSelectedIds2.has(a.id)?'✓':''}</div>
-              <div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div>
-              <div style="font-size:11px;color:var(--muted)">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</div></div>
-            </div>`).join('')}
-          </div>`;
-        }).join('')}
-      </div>
+      ${sAddrs.map(a=>`<div class="addr-sel ${shSelectedIds2.has(a.id)?'selected':''}" onclick="shareToggleAddr('${a.id}',this)" style="margin-bottom:3px;padding:7px 10px">
+        <div class="addr-sel-chk">${shSelectedIds2.has(a.id)?'✓':''}</div>
+        <div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div>
+        <div style="font-size:11px;color:var(--muted)">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</div></div>
+      </div>`).join('')}
     </div>`;
-  }).join('')+
-  // No-hood addresses
-  (noHoodAddrs.length>0?`<div style="font-size:11px;color:var(--muted);margin:8px 0 5px">Sem bairro definido (${noHoodAddrs.length})</div>`+
-    noHoodAddrs.map(a=>`<div class="addr-sel ${shSelectedIds2.has(a.id)?'selected':''}" onclick="toggleShSel2('${a.id}',this)" style="margin-bottom:3px">
-      <div class="addr-sel-chk">${shSelectedIds2.has(a.id)?'✓':''}</div>
-      <div><div style="font-weight:700;font-size:12px">${a.name||'Sem nome'}</div>
-      <div style="font-size:11px;color:var(--muted)">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</div></div>
-    </div>`).join(''):'');
+  }).join('');
+  // Update count
+  const cnt=document.getElementById('sh-sel-count');
+  if(cnt) cnt.textContent=`${shSelectedIds2.size} selecionado${shSelectedIds2.size!==1?'s':''}`;
 }
-function expandShareHood(hoodId){expandedShareHoods.add(hoodId);renderShareManual();}
-function collapseShareHood(hoodId){expandedShareHoods.delete(hoodId);renderShareManual();}
-function toggleHoodAllSel(hoodId,allSel){
-  const cityF=getF('sh-filter-city');
-  const hAddrs=cache.addresses.filter(a=>a.neighborhood_id===hoodId&&a.city_id===cityF);
-  hAddrs.forEach(a=>{if(allSel)shSelectedIds2.delete(a.id);else shSelectedIds2.add(a.id);});
-  renderShareManual();
-}
-function toggleStreetSel(ids,allSel){
-  ids.forEach(id=>{
-    if(allSel) shSelectedIds2.delete(id);
-    else shSelectedIds2.add(id);
-  });
-  renderShareManual();
-}
-function toggleShSel2(id,el){
+
+function shareToggleAddr(id,el){
   if(shSelectedIds2.has(id)){shSelectedIds2.delete(id);el.classList.remove('selected');el.querySelector('.addr-sel-chk').textContent='';}
   else{shSelectedIds2.add(id);el.classList.add('selected');el.querySelector('.addr-sel-chk').textContent='✓';}
+  const cnt=document.getElementById('sh-sel-count');
+  if(cnt) cnt.textContent=`${shSelectedIds2.size} selecionado${shSelectedIds2.size!==1?'s':''}`;
 }
-function updateShareHoodStep2(){
-  const cityId=getF('sh-val');
-  let hoodSel=document.getElementById('sh-val-hood'); if(!hoodSel) return;
-  if(!cityId){hoodSel.innerHTML='';return;}
-  const usedHoodIds=[...new Set(cache.addresses.map(a=>a.neighborhood_id).filter(Boolean))];
-  const hoods=cache.hoods.filter(h=>h.city_id===cityId&&usedHoodIds.includes(h.id));
-  hoodSel.innerHTML=`<label class="lbl" style="margin-top:5px">2. Bairro</label>
-    <select id="sh-val-hood-sel" style="width:100%;font-size:13px;padding:8px 11px;border:1.5px solid var(--border);border-radius:8px">
-      <option value="">Selecione o bairro...</option>
-      ${hoods.map(h=>`<option value="${h.id}">${h.name}</option>`).join('')}
-    </select>`;
+function shareToggleStreet(ids,allSel){
+  ids.forEach(id=>{if(allSel)shSelectedIds2.delete(id);else shSelectedIds2.add(id);});
+  renderShareAddresses();
 }
+function shareSelectAll(sel){
+  const city=getF('sh-city'); const hood=getF('sh-hood');
+  cache.addresses.filter(a=>a.city===city&&a.neighborhood===hood).forEach(a=>{
+    if(sel)shSelectedIds2.add(a.id);else shSelectedIds2.delete(a.id);
+  });
+  renderShareAddresses();
+}
+// Legacy stubs no longer needed but kept for safety
+function onShareCityChangeManual(){onShareCityChange();}
+function renderShareManual(){renderShareAddresses();}
+function updateShareUI(){}
+
 async function createShareLink(){
-  const label=getF('sh-label'); const type=getF('sh-type');
-  // For neighborhood: get hood from second select
-  let val = type==='neighborhood'
-    ? (document.getElementById('sh-val-hood-sel')?.value||'')
-    : getF('sh-val');
-  const addrIds=type==='custom'?[...shSelectedIds2]:null;
-  if(type==='custom'&&(!addrIds||addrIds.length===0)){toast('Selecione ao menos um endereço');return;}
-  if(type==='neighborhood'&&!val){toast('Selecione cidade e bairro');return;}
+  const label=getF('sh-label');
+  const city=getF('sh-city'); const hood=getF('sh-hood');
+  const addrIds=[...shSelectedIds2];
+  if(!city){toast('Selecione uma cidade');return;}
+  if(!hood){toast('Selecione um bairro');return;}
+  if(addrIds.length===0){toast('Nenhum endereço selecionado');return;}
   loading(true,'Gerando link...');
   const token=Math.random().toString(36).slice(2,6).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
   const expires=new Date(Date.now()+15*24*60*60*1000).toISOString();
-  const {data,error}=await sb.from('share_links').insert({token,label:label||'Link sem nome',filter_type:type,filter_value:val||null,address_ids:addrIds,created_by:currentUser?.email,expires_at:expires}).select().single();
+  // Always save as custom with selected IDs — guarantees exact addresses
+  const {data,error}=await sb.from('share_links').insert({
+    token,label:label||city+' — '+hood,filter_type:'custom',
+    filter_value:null,address_ids:addrIds,
+    created_by:currentUser?.email,expires_at:expires
+  }).select().single();
   loading(false);
   if(error){toast('Erro: '+error.message);return;}
   cache.shareLinks.unshift(data);

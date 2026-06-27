@@ -298,11 +298,11 @@ textarea{resize:vertical;min-height:70px;}
       <div class="fc" data-f="nohood" onclick="setFilter(this,'nohood')">Sem bairro</div>
     </div>
     <div style="display:flex;gap:7px;margin-bottom:7px;flex-wrap:wrap">
-      <select id="addr-filter-city" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
+      <select id="addr-filter-city" onchange="onAddrFilterCityChange()" style="flex:1;min-width:110px;font-size:12px">
         <option value="">Todas cidades</option>
       </select>
-      <select id="addr-filter-hood" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px">
-        <option value="">Todos bairros</option>
+      <select id="addr-filter-hood" onchange="renderAddresses()" style="flex:1;min-width:110px;font-size:12px" disabled>
+        <option value="">Selecione cidade primeiro</option>
       </select>
     </div>
     <div style="display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap">
@@ -338,7 +338,7 @@ textarea{resize:vertical;min-height:70px;}
       </select>
     </div>
     <div style="display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap">
-      <select id="map-fc" onchange="renderMainMap()" style="flex:1;font-size:12px"><option value="all">Todas cidades</option></select>
+      <select id="map-fc" onchange="onMapCityChange()" style="flex:1;font-size:12px"><option value="all">Todas cidades</option></select>
       <select id="map-fh" onchange="renderMainMap()" style="flex:1;font-size:12px"><option value="all">Todos bairros</option></select>
       <button class="btn btn-p btn-sm" onclick="showAddressModal()" style="white-space:nowrap">+ Endereço</button>
     </div>
@@ -487,8 +487,19 @@ textarea{resize:vertical;min-height:70px;}
     <div class="fr"><label class="lbl">Número</label><input type="text" id="f-number" placeholder="Nº"></div>
   </div>
   <div class="fg2">
-    <div class="fr"><label class="lbl">Bairro</label><input type="text" id="f-hood" placeholder="Bairro"></div>
-    <div class="fr"><label class="lbl">Cidade</label><input type="text" id="f-city" placeholder="Cidade"></div>
+    <div class="fr"><label class="lbl">Cidade</label>
+      <select id="f-city" onchange="onAddrCityChange()">
+        <option value="">Selecione a cidade...</option>
+      </select>
+    </div>
+    <div class="fr"><label class="lbl">Bairro</label>
+      <select id="f-hood">
+        <option value="">Selecione o bairro...</option>
+      </select>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--p600);margin-bottom:10px">
+    💡 Ao marcar um Grupo abaixo, cidade e bairro preenchem automaticamente.
   </div>
   <div class="fg2">
     <div class="fr"><label class="lbl">Complemento</label><input type="text" id="f-comp" placeholder="Apto, bloco..."></div>
@@ -1103,23 +1114,39 @@ function filterByGroup(gid){
   setF('srch-input','');
   renderAddrList(cache.addresses.filter(a=>a.group_id===gid));
 }
+function onAddrFilterCityChange(){
+  const hf=document.getElementById('addr-filter-hood');
+  const cv=getF('addr-filter-city');
+  if(hf){
+    if(!cv){
+      hf.innerHTML='<option value="">Selecione cidade primeiro</option>';
+      hf.disabled=true;
+    } else {
+      hf.disabled=false;
+    }
+  }
+  renderAddresses();
+}
 function populateAddrFilters(){
   const cf=document.getElementById('addr-filter-city');
   const hf=document.getElementById('addr-filter-hood');
   const gf=document.getElementById('addr-filter-group');
   if(!cf||!hf||!gf) return;
   const cv=cf.value, hv=hf.value, gv=gf.value;
-  // Cities: use city_id if available, fallback to city text
-  const usedCityIds=[...new Set(cache.addresses.map(a=>a.city_id).filter(Boolean))];
-  const usedCityNames=[...new Set(cache.addresses.filter(a=>!a.city_id).map(a=>a.city).filter(Boolean))];
+  // Cities: unique text values from addresses
+  const cities=[...new Set(cache.addresses.map(a=>a.city).filter(Boolean))].sort();
   cf.innerHTML='<option value="">Todas cidades</option>'+
-    cache.cities.filter(c=>usedCityIds.includes(c.id)).map(c=>`<option value="${c.id}" ${cv===c.id?'selected':''}>${c.name}</option>`).join('')+
-    usedCityNames.map(n=>`<option value="txt:${n}" ${cv===`txt:${n}`?'selected':''}>${n}</option>`).join('');
-  // Hoods: filter by city_id
-  const cityId=cv&&!cv.startsWith('txt:')?cv:null;
-  const usedHoodIds=[...new Set(cache.addresses.filter(a=>!cityId||a.city_id===cityId).map(a=>a.neighborhood_id).filter(Boolean))];
-  const hoodsForCity=cityId?cache.hoods.filter(h=>h.city_id===cityId&&usedHoodIds.includes(h.id)):cache.hoods.filter(h=>usedHoodIds.includes(h.id));
-  hf.innerHTML='<option value="">Todos bairros</option>'+hoodsForCity.map(h=>`<option value="${h.id}" ${hv===h.id?'selected':''}>${h.name}</option>`).join('');
+    cities.map(c=>`<option value="${c}" ${cv===c?'selected':''}>${c}</option>`).join('');
+  // Hoods: only show when city is selected (bairro is always child of city)
+  if(!cv){
+    hf.innerHTML='<option value="">Selecione cidade primeiro</option>';
+    hf.disabled=true;
+  } else {
+    hf.disabled=false;
+    const hoods=[...new Set(cache.addresses.filter(a=>a.city===cv).map(a=>a.neighborhood).filter(Boolean))].sort();
+    hf.innerHTML='<option value="">Todos bairros</option>'+
+      hoods.map(h=>`<option value="${h}" ${hv===h?'selected':''}>${h}</option>`).join('');
+  }
   // Groups
   gf.innerHTML='<option value="">Todos grupos</option>'+cache.groups.map(g=>`<option value="${g.id}" ${gv===g.id?'selected':''}>${g.icon} ${g.name}</option>`).join('');
 }
@@ -1136,13 +1163,10 @@ function renderAddresses() {
     const ppl = (cache.people[a.id]||[]).map(p=>p.nationality+' '+p.name).join(' ');
     const match = [a.name,a.street,a.neighborhood,a.city,a.code,ppl].filter(Boolean).join(' ').toLowerCase().includes(q);
     if (!match) return false;
-    // City filter: support both city_id and text fallback
-    if (cityF) {
-      if(cityF.startsWith('txt:')){ if(a.city!==(cityF.slice(4))) return false; }
-      else { if(a.city_id!==cityF && !(a.city_id===null && a.city===cache.cities.find(c=>c.id===cityF)?.name)) return false; }
-    }
-    // Hood filter by hood_id
-    if (hoodF && a.neighborhood_id !== hoodF) return false;
+    // City filter: pure text (hood is always child of city)
+    if (cityF && a.city !== cityF) return false;
+    // Hood filter: pure text (only applies when city is also selected)
+    if (cityF && hoodF && a.neighborhood !== hoodF) return false;
     // Group filter: check address_groups multi-group
     if (groupF) {
       const grps = cache.addressGroups[a.id] || (a.group_id?[a.group_id]:[]);
@@ -1183,7 +1207,7 @@ function renderAddrList(list) {
         <div class="ac-ico">${g?g.icon:'📍'}</div>
         <div class="ac-info">
           <div class="ac-name">${a.name||'Sem nome'}${!a.group_id?'<span class="warn-badge" style="margin-left:5px">sem grupo</span>':''}</div>
-          <div class="ac-street">${[a.street,a.number,a.neighborhood].filter(Boolean).join(', ')||'Sem endereço'}</div>
+          <div class="ac-street">${[a.street,a.number].filter(Boolean).join(', ')||'Sem endereço'}${a.neighborhood?' · '+a.neighborhood:''}${!a.neighborhood&&a.city?' · '+a.city:''}</div>
           <div class="ac-code">#${a.code||'—'}</div>
         </div>
         <div style="font-size:17px">${STATUS_ICON[a.status]||'⏳'}</div>
@@ -1217,7 +1241,8 @@ function showDetail(id) {
   document.getElementById('det-content').innerHTML = `
     <div class="dr"><span class="dl">Código</span><span class="dv" style="font-family:monospace;font-weight:700">#${a.code||'—'}</span></div>
     <div class="dr"><span class="dl">Endereço</span><span class="dv">${[a.street,a.number].filter(Boolean).join(', ')||'—'}</span></div>
-    <div class="dr"><span class="dl">Bairro / Cidade</span><span class="dv">${[a.neighborhood,a.city].filter(Boolean).join(', ')||'—'}</span></div>
+    <div class="dr"><span class="dl">Cidade</span><span class="dv">${a.city||'—'}</span></div>
+    <div class="dr"><span class="dl">Bairro</span><span class="dv">${a.neighborhood||'—'}</span></div>
     <div class="dr"><span class="dl">Complemento</span><span class="dv">${a.complement||'—'}</span></div>
     <div class="dr"><span class="dl">Status</span><span class="dv">${STATUS_ICON[a.status]} ${STATUS_LABEL[a.status]||a.status}</span></div>
     <div class="dr"><span class="dl">Grupos</span><span class="dv">${(()=>{const gids=cache.addressGroups[id]||(a.group_id?[a.group_id]:[]);if(!gids.length)return'—';return gids.map(gid=>{const gr=cache.groups.find(x=>x.id===gid);return gr?gr.icon+' '+gr.name:'?';}).join(', ');})()}</span></div>
@@ -1240,29 +1265,33 @@ function showDetail(id) {
 // =============================================
 // SAVE ADDRESS
 // =============================================
-function populateAddrCitySelect(selectedCityId){
-  const sel=document.getElementById('f-city-id'); if(!sel) return;
-  sel.innerHTML='<option value="">Selecione a cidade</option>'+
-    cache.cities.map(c=>`<option value="${c.id}" ${c.id===selectedCityId?'selected':''}>${c.name}</option>`).join('');
+function populateCitySelect(selectedCity){
+  const sel=document.getElementById('f-city'); if(!sel) return;
+  // Use cities table (same ones in Groups)
+  const opts=cache.cities.sort((a,b)=>a.name.localeCompare(b.name))
+    .map(c=>`<option value="${c.name}" ${c.name===selectedCity?'selected':''}>${c.name}</option>`).join('');
+  sel.innerHTML=`<option value="">Selecione a cidade...</option>${opts}`;
 }
-function populateAddrHoodSelect(cityId, selectedHoodId){
-  const sel=document.getElementById('f-hood-id'); if(!sel) return;
-  const hoods=cityId ? cache.hoods.filter(h=>h.city_id===cityId) : cache.hoods;
-  sel.innerHTML='<option value="">Selecione o bairro</option>'+
-    hoods.map(h=>`<option value="${h.id}" ${h.id===selectedHoodId?'selected':''}>${h.name}</option>`).join('');
+function populateHoodSelect(cityName, selectedHood){
+  const sel=document.getElementById('f-hood'); if(!sel) return;
+  // Filter neighborhoods by city
+  const city=cache.cities.find(c=>c.name===cityName);
+  const hoods=city
+    ? cache.hoods.filter(h=>h.city_id===city.id).sort((a,b)=>a.name.localeCompare(b.name))
+    : cache.hoods.sort((a,b)=>a.name.localeCompare(b.name));
+  const opts=hoods.map(h=>`<option value="${h.name}" ${h.name===selectedHood?'selected':''}>${h.name}</option>`).join('');
+  sel.innerHTML=`<option value="">Selecione o bairro...</option>${opts}`;
 }
 function onAddrCityChange(){
-  const cityId=getF('f-city-id');
-  setF('f-city-txt',''); // clear text when select is used
-  populateAddrHoodSelect(cityId,'');
+  const city=getF('f-city');
+  populateHoodSelect(city, '');
 }
-function onAddrCityTextInput(){
-  // Clear the select when typing manually
-  setF('f-city-id','');
-  setF('f-hood-id','');
-  const sel=document.getElementById('f-hood-id');
-  if(sel) sel.innerHTML='<option value="">Selecione o bairro</option>';
-}
+// Stubs for backwards compat
+function populateCityDatalist(){ populateCitySelect(''); }
+function updateHoodDatalist(){ populateHoodSelect(getF('f-city'), getF('f-hood')); }
+function populateAddrCitySelect(){ populateCitySelect(''); }
+function populateAddrHoodSelect(){ }
+function onAddrCityTextInput(){ }
 function populateGroupsContainer(selectedGroupIds){
   const c=document.getElementById('f-groups-container'); if(!c) return;
   if(cache.groups.length===0){c.innerHTML='<div style="font-size:12px;color:var(--muted)">Nenhum grupo cadastrado.</div>';return;}
@@ -1289,12 +1318,14 @@ function onGroupCheckChange(){
   if(!first) return;
   const gid=first.value;
   const group=cache.groups.find(g=>g.id===gid); if(!group) return;
-  if(group.city_id){
-    populateAddrCitySelect(group.city_id);
-    setF('f-city-id',group.city_id);
-    setF('f-city-txt','');
-    populateAddrHoodSelect(group.city_id, group.neighborhood_id||'');
-    if(group.neighborhood_id){setF('f-hood-id',group.neighborhood_id);setF('f-hood-txt','');}
+  // Auto-fill city and hood from group — only if not already set
+  const city=group.city_id?cache.cities.find(c=>c.id===group.city_id):null;
+  const hood=group.neighborhood_id?cache.hoods.find(h=>h.id===group.neighborhood_id):null;
+  if(city){
+    populateCitySelect(city.name);
+    populateHoodSelect(city.name, hood?.name||'');
+  } else if(hood){
+    populateHoodSelect(getF('f-city'), hood.name);
   }
 }
 function getSelectedGroupIds(){
@@ -1306,7 +1337,9 @@ function showAddressModal(id) {
   document.getElementById('ph-prev').innerHTML='';
   document.getElementById('visits-log').innerHTML='';
   document.getElementById('add-visit-form').style.display='none';
-  ['f-name','f-street','f-number','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps','f-code','f-city','f-hood'].forEach(i=>setF(i,''));
+  ['f-name','f-street','f-number','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps','f-code'].forEach(i=>setF(i,''));
+  populateCitySelect('');
+  populateHoodSelect('','');
   setF('f-status','pending');
   populateAddrCitySelect('');
   populateAddrHoodSelect('','');
@@ -1319,18 +1352,8 @@ function showAddressModal(id) {
     setF('f-besttime',a.best_time); setF('f-lastpub',a.last_pub); setF('f-code',a.code); setF('f-cep',a.cep); setF('f-gmaps',a.gmaps_link);
     setF('f-status',a.status);
     // City/hood by ID
-    const cityId = a.city_id || (cache.cities.find(c=>c.name===a.city)?.id||'');
-    const hoodId = a.neighborhood_id || (cache.hoods.find(h=>h.name===a.neighborhood&&h.city_id===cityId)?.id||'');
-    populateAddrCitySelect(cityId);
-    setF('f-city-id', cityId);
-    populateAddrHoodSelect(cityId, hoodId);
-    setF('f-hood-id', hoodId);
-    // Also fill text fallbacks with the text values
-    setF('f-city-txt', cityId ? '' : (a.city||''));
-    setF('f-hood-txt', hoodId ? '' : (a.neighborhood||''));
-    // Fill plain text fields (f-city, f-hood) which are what's actually in the modal HTML
-    setF('f-city', a.city||'');
-    setF('f-hood', a.neighborhood||'');
+    populateCitySelect(a.city||'');
+    populateHoodSelect(a.city||'', a.neighborhood||'');
     // Multi-group
     const selGroups = cache.addressGroups[id] || (a.group_id?[a.group_id]:[]);
     populateGroupsContainer(selGroups);
@@ -1385,21 +1408,16 @@ async function saveAddress() {
   loading(true, 'Salvando...');
   try {
     const id = getF('ei') || null;
-    const cityId = getF('f-city-id') || null;
-    const hoodId = getF('f-hood-id') || null;
-    const cityObj = cache.cities.find(c=>c.id===cityId);
-    const hoodObj = cache.hoods.find(h=>h.id===hoodId);
-    // Use text fallback: try select ID first, then text fields (f-city-txt or f-city)
-    const cityText = cityObj?.name || getF('f-city-txt') || getF('f-city') || null;
-    const hoodText = hoodObj?.name || getF('f-hood-txt') || getF('f-hood') || null;
+    const cityText = getF('f-city')?.trim() || null;
+    const hoodText = getF('f-hood')?.trim() || null;
     const selectedGroupIds = getSelectedGroupIds();
     const firstGroupId = selectedGroupIds[0] || null;
     const addrData = {
       name:nm, street:getF('f-street'), number:getF('f-number'),
       neighborhood: hoodText,
-      neighborhood_id: hoodId,
+      neighborhood_id: null,
       city: cityText,
-      city_id: cityId,
+      city_id: null,
       complement:getF('f-comp'), lat:parseFloat(getF('f-lat'))||null,
       lng:parseFloat(getF('f-lng'))||null, status:getF('f-status'),
       group_id: firstGroupId,
@@ -1488,6 +1506,12 @@ async function saveQuickVisit() {
 // =============================================
 // MAP
 // =============================================
+function onMapCityChange(){
+  // When city changes, reset hood filter to 'all'
+  const hf=document.getElementById('map-fh');
+  if(hf) hf.value='all';
+  renderMainMap();
+}
 function renderMainMap() {
   const gf = getF('map-fg') || 'all';
   const sf = getF('map-fs') || 'all';
@@ -2031,20 +2055,23 @@ async function toggleInvite(eid,aid,el){
 // =============================================
 let shSelectedIds2 = new Set();
 function renderSharePage(){
-  // Populate city dropdown from actual address data (city TEXT field)
+  // Populate city dropdown from actual addresses (text field)
+  // This ensures only cities that actually have addresses appear
   const cities=[...new Set(cache.addresses.map(a=>a.city).filter(Boolean))].sort();
   const cs=document.getElementById('sh-city');
   if(cs){
     cs.innerHTML='<option value="">Selecione a cidade...</option>'+
       cities.map(c=>`<option value="${c}">${c}</option>`).join('');
   }
-  // Reset downstream
+  // Reset downstream selects
   const hw=document.getElementById('sh-hood-wrap');
   const gw=document.getElementById('sh-group-wrap');
   const aw=document.getElementById('sh-addr-wrap');
+  const hoodEl=document.getElementById('sh-hood');
   if(hw) hw.style.display='none';
   if(gw) gw.style.display='none';
   if(aw) aw.style.display='none';
+  if(hoodEl) hoodEl.innerHTML='<option value="">Selecione o bairro...</option>';
   document.getElementById('sh-result').style.display='none';
   renderActiveLinks();
 }
@@ -2060,12 +2087,18 @@ function onShareCityChange(){
   if(sr) sr.style.display='none';
   shSelectedIds2.clear();
   if(!city){ if(hw) hw.style.display='none'; return; }
-  // Get unique neighborhoods from addresses in this city (using text field)
-  const hoods=[...new Set(cache.addresses.filter(a=>a.city===city).map(a=>a.neighborhood).filter(Boolean))].sort();
+  // Get unique neighborhoods from addresses in this city (text comparison)
+  const hoods=[...new Set(
+    cache.addresses.filter(a=>a.city===city).map(a=>a.neighborhood).filter(Boolean)
+  )].sort();
   const hs=document.getElementById('sh-hood');
   if(hs){
-    hs.innerHTML='<option value="">Selecione o bairro...</option>'+
-      hoods.map(h=>`<option value="${h}">${h}</option>`).join('');
+    if(hoods.length===0){
+      hs.innerHTML='<option value="">Nenhum bairro cadastrado para esta cidade</option>';
+    } else {
+      hs.innerHTML='<option value="">Selecione o bairro...</option>'+
+        hoods.map(h=>`<option value="${h}">${h}</option>`).join('');
+    }
   }
   if(hw) hw.style.display='block';
 }
@@ -2450,21 +2483,17 @@ async function fetchCEP(){
   try{
     const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);const d=await r.json();if(d.erro)return;
     setF('f-street',d.logradouro);
-    // Try to match city in cache
-    const matchCity=cache.cities.find(c=>c.name.toLowerCase()===d.localidade.toLowerCase());
-    if(matchCity){
-      populateAddrCitySelect(matchCity.id);
-      setF('f-city-id',matchCity.id);
-      setF('f-city-txt','');
-      const matchHood=cache.hoods.find(h=>h.city_id===matchCity.id&&h.name.toLowerCase()===d.bairro.toLowerCase());
-      populateAddrHoodSelect(matchCity.id, matchHood?.id||'');
-      if(matchHood){setF('f-hood-id',matchHood.id);setF('f-hood-txt','');}
-      else{setF('f-hood-id','');setF('f-hood-txt',d.bairro);}
+    // Try to match city in cities table, fallback to text
+    const cepCity=cache.cities.find(c=>c.name.toLowerCase()===d.localidade.toLowerCase());
+    if(cepCity){
+      populateCitySelect(cepCity.name);
+      const cepHood=cache.hoods.find(h=>h.city_id===cepCity.id&&h.name.toLowerCase()===d.bairro.toLowerCase());
+      populateHoodSelect(cepCity.name, cepHood?.name||'');
     } else {
-      setF('f-city-id','');setF('f-city-txt',d.localidade);setF('f-city',d.localidade);
-      setF('f-hood-id','');setF('f-hood-txt',d.bairro);setF('f-hood',d.bairro);
+      populateCitySelect('');
+      populateHoodSelect('','');
     }
-    toast('✅ CEP preenchido!');
+    toast('✅ CEP preenchido! Confirme cidade e bairro.');
   }catch{toast('CEP não encontrado.');}
 }
 function parseGMapsLink(){

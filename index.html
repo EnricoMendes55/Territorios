@@ -313,6 +313,8 @@ textarea{resize:vertical;min-height:70px;}
     </div>
     <div style="display:flex;gap:7px;margin-bottom:10px">
       <select id="addr-sort" onchange="renderAddresses()" style="flex:1;font-size:12px">
+        <option value="newest">Ordenar: Mais recentes</option>
+        <option value="oldest_reg">Ordenar: Mais antigos</option>
         <option value="name">Ordenar: Nome</option>
         <option value="city">Ordenar: Cidade</option>
         <option value="hood">Ordenar: Bairro</option>
@@ -1129,7 +1131,7 @@ function renderAddresses() {
   const hoodF = getF('addr-filter-hood');
   const groupF = getF('addr-filter-group');
   const streetF = (getF('addr-filter-street')||'').toLowerCase();
-  const sortV = getF('addr-sort') || 'name';
+  const sortV = getF('addr-sort') || 'newest';
   let list = cache.addresses.filter(a => {
     const ppl = (cache.people[a.id]||[]).map(p=>p.nationality+' '+p.name).join(' ');
     const match = [a.name,a.street,a.neighborhood,a.city,a.code,ppl].filter(Boolean).join(' ').toLowerCase().includes(q);
@@ -1156,6 +1158,8 @@ function renderAddresses() {
   });
   // Sort
   list.sort((a,b)=>{
+    if(sortV==='newest') return (b.created_at||'').localeCompare(a.created_at||'');
+    if(sortV==='oldest_reg') return (a.created_at||'').localeCompare(b.created_at||'');
     if(sortV==='name') return (a.name||'').localeCompare(b.name||'');
     if(sortV==='city') return (a.city||'').localeCompare(b.city||'');
     if(sortV==='hood') return (a.neighborhood||'').localeCompare(b.neighborhood||'');
@@ -1249,7 +1253,15 @@ function populateAddrHoodSelect(cityId, selectedHoodId){
 }
 function onAddrCityChange(){
   const cityId=getF('f-city-id');
+  setF('f-city-txt',''); // clear text when select is used
   populateAddrHoodSelect(cityId,'');
+}
+function onAddrCityTextInput(){
+  // Clear the select when typing manually
+  setF('f-city-id','');
+  setF('f-hood-id','');
+  const sel=document.getElementById('f-hood-id');
+  if(sel) sel.innerHTML='<option value="">Selecione o bairro</option>';
 }
 function populateGroupsContainer(selectedGroupIds){
   const c=document.getElementById('f-groups-container'); if(!c) return;
@@ -1273,7 +1285,6 @@ function populateGroupsContainer(selectedGroupIds){
   c.innerHTML=byCityHtml+noCityHtml;
 }
 function onGroupCheckChange(){
-  // Auto-fill city/hood from first checked group
   const first=document.querySelector('.g-chk:checked');
   if(!first) return;
   const gid=first.value;
@@ -1281,8 +1292,9 @@ function onGroupCheckChange(){
   if(group.city_id){
     populateAddrCitySelect(group.city_id);
     setF('f-city-id',group.city_id);
+    setF('f-city-txt','');
     populateAddrHoodSelect(group.city_id, group.neighborhood_id||'');
-    if(group.neighborhood_id) setF('f-hood-id',group.neighborhood_id);
+    if(group.neighborhood_id){setF('f-hood-id',group.neighborhood_id);setF('f-hood-txt','');}
   }
 }
 function getSelectedGroupIds(){
@@ -1294,7 +1306,7 @@ function showAddressModal(id) {
   document.getElementById('ph-prev').innerHTML='';
   document.getElementById('visits-log').innerHTML='';
   document.getElementById('add-visit-form').style.display='none';
-  ['f-name','f-street','f-number','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps','f-code'].forEach(i=>setF(i,''));
+  ['f-name','f-street','f-number','f-comp','f-lat','f-lng','f-notes','f-besttime','f-lastpub','f-cep','f-gmaps','f-code','f-city','f-hood'].forEach(i=>setF(i,''));
   setF('f-status','pending');
   populateAddrCitySelect('');
   populateAddrHoodSelect('','');
@@ -1313,6 +1325,12 @@ function showAddressModal(id) {
     setF('f-city-id', cityId);
     populateAddrHoodSelect(cityId, hoodId);
     setF('f-hood-id', hoodId);
+    // Also fill text fallbacks with the text values
+    setF('f-city-txt', cityId ? '' : (a.city||''));
+    setF('f-hood-txt', hoodId ? '' : (a.neighborhood||''));
+    // Fill plain text fields (f-city, f-hood) which are what's actually in the modal HTML
+    setF('f-city', a.city||'');
+    setF('f-hood', a.neighborhood||'');
     // Multi-group
     const selGroups = cache.addressGroups[id] || (a.group_id?[a.group_id]:[]);
     populateGroupsContainer(selGroups);
@@ -1369,15 +1387,18 @@ async function saveAddress() {
     const id = getF('ei') || null;
     const cityId = getF('f-city-id') || null;
     const hoodId = getF('f-hood-id') || null;
-    const city = cache.cities.find(c=>c.id===cityId);
-    const hood = cache.hoods.find(h=>h.id===hoodId);
+    const cityObj = cache.cities.find(c=>c.id===cityId);
+    const hoodObj = cache.hoods.find(h=>h.id===hoodId);
+    // Use text fallback: try select ID first, then text fields (f-city-txt or f-city)
+    const cityText = cityObj?.name || getF('f-city-txt') || getF('f-city') || null;
+    const hoodText = hoodObj?.name || getF('f-hood-txt') || getF('f-hood') || null;
     const selectedGroupIds = getSelectedGroupIds();
     const firstGroupId = selectedGroupIds[0] || null;
     const addrData = {
       name:nm, street:getF('f-street'), number:getF('f-number'),
-      neighborhood: hood?.name || null,
+      neighborhood: hoodText,
       neighborhood_id: hoodId,
-      city: city?.name || null,
+      city: cityText,
       city_id: cityId,
       complement:getF('f-comp'), lat:parseFloat(getF('f-lat'))||null,
       lng:parseFloat(getF('f-lng'))||null, status:getF('f-status'),
@@ -2429,9 +2450,20 @@ async function fetchCEP(){
   try{
     const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`);const d=await r.json();if(d.erro)return;
     setF('f-street',d.logradouro);
-    // For city: try to match existing, else use text
-    populateAddrCitySelect(d.localidade);
-    populateAddrHoodSelect(d.localidade, d.bairro);
+    // Try to match city in cache
+    const matchCity=cache.cities.find(c=>c.name.toLowerCase()===d.localidade.toLowerCase());
+    if(matchCity){
+      populateAddrCitySelect(matchCity.id);
+      setF('f-city-id',matchCity.id);
+      setF('f-city-txt','');
+      const matchHood=cache.hoods.find(h=>h.city_id===matchCity.id&&h.name.toLowerCase()===d.bairro.toLowerCase());
+      populateAddrHoodSelect(matchCity.id, matchHood?.id||'');
+      if(matchHood){setF('f-hood-id',matchHood.id);setF('f-hood-txt','');}
+      else{setF('f-hood-id','');setF('f-hood-txt',d.bairro);}
+    } else {
+      setF('f-city-id','');setF('f-city-txt',d.localidade);setF('f-city',d.localidade);
+      setF('f-hood-id','');setF('f-hood-txt',d.bairro);setF('f-hood',d.bairro);
+    }
     toast('✅ CEP preenchido!');
   }catch{toast('CEP não encontrado.');}
 }
